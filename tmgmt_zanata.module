@@ -1,0 +1,29 @@
+<?php
+
+/**
+ * @file
+ * Module file for translation management Zanata module.
+ *
+ * http://zanata.org/
+ *
+ * Implemented by David Mason damason@redhat.com
+ */
+
+/**
+ * Implements hook_tmgmt_translator_plugin_info()
+ */
+function tmgmt_zanata_tmgmt_translator_plugin_info() {
+  return array(
+    'zanata' => array(
+      'label' => t('Zanata translator'),
+      'description' => t('Service to translate strings with Zanata'),
+      'plugin controller class' => 'TMGMTZanataTranslatorPluginController',
+      'ui controller class' => 'TMGMTZanataTranslatorUIController',
+      'auto create' => TRUE,
+      // TODO look at other settings on the hook page
+    ),
+  );
+}
+
+
+  // TODO make it auto-created

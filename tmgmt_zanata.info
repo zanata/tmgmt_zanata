@@ -1,0 +1,8 @@
+name = Zanata translator
+description = Zanata translation plugin for TMGMT. Visit <a href="http://zanata.org/">zanata.org</a>.
+package = Translation Management
+core = 7.x
+dependencies[] = tmgmt
+
+files[] = tmgmt_zanata.plugin.inc
+files[] = tmgmt_zanata.ui.inc
