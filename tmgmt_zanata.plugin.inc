@@ -58,12 +58,11 @@ class TMGMTZanataTranslatorPluginController extends TMGMTDefaultTranslatorPlugin
    */
   public function requestTranslation(TMGMTJob $job) {
 
-    // TODO move these to configuration
-    $server_url = 'http://localhost:8080/zanata';
-    $project_id = 'drupal-test';
-    $version_id = '1';
+    $base_url = _tmgmt_zanata_base_url($job->getTranslator());
+    $translator = $job->getTranslator();
+    $username = $translator->getSetting('username');
+    $api_key = $translator->getSetting('api_key');
 
-    $base_url = "{$server_url}/rest/projects/p/{$project_id}/iterations/i/{$version_id}/r";
 
     foreach ($job->getItems() as $job_item) {
 
@@ -75,6 +74,7 @@ class TMGMTZanataTranslatorPluginController extends TMGMTDefaultTranslatorPlugin
       $url = "{$base_url}/{$encoded_id}";
 
 
+      // FIXME make sure plugin only allows en-US to other languages
       // JSON format for source doc is at https://zanata.ci.cloudbees.com/job/zanata-api-site/site/zanata-common-api/rest-api-docs/el_ns0_resource.html
       $data = array(
         'contentType' => 'text/plain', // required!
@@ -88,8 +88,8 @@ class TMGMTZanataTranslatorPluginController extends TMGMTDefaultTranslatorPlugin
       $options = array(
         'method' => 'PUT',
         'headers' => array(
-          'X-Auth-User' => 'admin', // FIXME get from config
-          'X-Auth-Token' => 'b6d7044e9ee3b2447c28fb7c50d86d98', // FIXME get from config
+          'X-Auth-User' => $username,
+          'X-Auth-Token' => $api_key,
           'Content-Type' => 'application/json',
           'Accept' => 'application/json',
         ),

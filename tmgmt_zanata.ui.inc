@@ -10,6 +10,60 @@
  */
 class TMGMTZanataTranslatorUIController extends TMGMTDefaultTranslatorUIController {
 
+
+  /**
+   * Overrides TMGMTDefaultTranslatorUIController::pluginSettingsForm().
+   *
+   * These settings are accessed in the UI via:
+   *  Administration -> Configuration -> Regional and language -> Translation management translators
+   *  then edit under Operations
+   */
+  public function pluginSettingsForm($form, &$form_state, TMGMTTranslator $translator, $busy = FALSE) {
+    $form['server'] = array(
+      '#type' => 'textfield', // TODO check whether there is a specific type for URLs
+      '#title' => t('Zanata server URL'),
+      '#description' => t('Base URL for the Zanata server. This should not include a / at the end. e.g. http://translate.zanata.org'),
+      '#size' => 120,
+      '#required' => TRUE,
+      '#default_value' => $translator->getSetting('server'),
+    );
+    $form['username'] = array(
+      '#type' => 'textfield',
+      '#title' => t('username'),
+      '#description' => t('Your username on Zanata.'),
+      '#size' => 20,
+      '#maxlength' => 20,
+      '#default_value' => $translator->getSetting('username'),
+    );
+    $form['api_key'] = array(
+      '#type' => 'textfield',
+      '#title' => t('API key'),
+      '#description' => t('Your API key on Zanata, found in the "Client" section of your user settings (via the dashboard).'),
+      '#size' => 32,
+      '#maxlength' => 32,
+      '#default_value' => $translator->getSetting('api_key'),
+    );
+    $form['project'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Project ID'),
+      '#description' => t('Project ID on Zanata. This should match a project that exists on Zanata.'),
+      '#size' => 40,
+      '#maxlength' => 40,
+      '#default_value' => $translator->getSetting('project'),
+    );
+    $form['version'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Version ID'),
+      '#description' => t('Version ID on Zanata. This should match a version that exists in the given project.'),
+      '#size' => 40,
+      '#maxlength' => 40,
+      '#default_value' => $translator->getSetting('version'),
+    );
+
+    return parent::pluginSettingsForm($form, $form_state, $translator, $busy);
+  }
+
+
   /**
    * Implements TMGMTTranslatorUIControllerInterface::checkoutInfo();
    *
@@ -18,29 +72,12 @@ class TMGMTZanataTranslatorUIController extends TMGMTDefaultTranslatorUIControll
    *         Information".
    */
   public function checkoutInfo(TMGMTJob $job) {
-    // TODO use the same URL-generation method as for the plugin controller
-    // Documentation says to put a poll button here
-    // So I want to do something like this to put a button, and wire it up to do the
-    // appropriate thing when it is clicked.
+    // TODO show information about last known translation statistics overall and per node
 
-    // Here is an ajax example that may be useful for showing updated results with or without a reload:
-    // https://api.drupal.org/api/examples/ajax_example!ajax_example_graceful_degradation.inc/function/ajax_example_add_more/7
-
-    // This mentions making a URL with a placeholder for doing an operation on something,
-    // such as doing poll translations given the tjid
-    // but it also seems like maybe I could just add TMGMTJob $job onto the arguments and
-    // it would automatically pass it in?
-
+    $info['actions'] = array('#type' => 'actions');
     // TODO limit access of this button to only jobs that have been submitted to Zanata
     //      use '#access' key on the button, with an appropriate check on the job such
     //      as $job->isSubmitted() if that exists
-
-    $info['tjid'] = array(
-      '#type' => 'hidden',
-      '#value' => $job->tjid,
-    );
-
-    $info['actions'] = array('#type' => 'actions');
     $info['actions']['poll'] = array(
       '#type' => 'submit', // type 'button' is also available, but I am not sure how to attach that to a function
       '#value' => t('Update translation info'),
@@ -51,12 +88,3 @@ class TMGMTZanataTranslatorUIController extends TMGMTDefaultTranslatorUIControll
     return $info;
   }
 }
-
-// function to get a translation job:
-// tmgmt_job_load($tjid)
-
-
-// Note that the UI controller has a checkoutInfo($job) method and recommend that a 'Poll' button be placed to sync the job state.
-// http://api.worldempire.ch/api/tmgmt/plugin%21tmgmt.ui.interface.translator.inc/function/TMGMTTranslatorUIControllerInterface%3A%3AcheckoutInfo/7-1
-
-

@@ -20,9 +20,23 @@ function tmgmt_zanata_tmgmt_translator_plugin_info() {
       'plugin controller class' => 'TMGMTZanataTranslatorPluginController',
       'ui controller class' => 'TMGMTZanataTranslatorUIController',
       'auto create' => TRUE, // FIXME make sure auto create works properly
+      'default settings' => array(
+        'server' => 'http://localhost:8080/zanata',
+      ),
       // TODO look at other settings on the hook page
     ),
   );
+}
+
+/**
+ * Returns the base REST URL for documents in the configured project/version
+ */
+function _tmgmt_zanata_base_url($translator) {
+  $server_url = $translator->getSetting('server'); //'http://localhost:8080/zanata';
+  $project_id = $translator->getSetting('project'); //'drupal-test';
+  $version_id = $translator->getSetting('version'); // '1'
+
+  return "{$server_url}/rest/projects/p/{$project_id}/iterations/i/{$version_id}/r";
 }
 
 
@@ -34,12 +48,9 @@ function tmgmt_zanata_poll_translations($form, &$form_state) {
   // FIXME remove duplication between this and requestTranslation()
 
   $job = $form_state['tmgmt_job'];
+  $base_url = _tmgmt_zanata_base_url($job->getTranslator());
 
-  $server_url = 'http://localhost:8080/zanata';
-  $project_id = 'drupal-test';
-  $version_id = '1';
 
-  $base_url = "{$server_url}/rest/projects/p/{$project_id}/iterations/i/{$version_id}/r";
 
   foreach ($job->getItems() as $job_item) {
     $doc_id = $job_item->item_type . $job_item->item_id;
