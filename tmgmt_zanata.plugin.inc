@@ -65,12 +65,19 @@ class TMGMTZanataTranslatorPluginController extends TMGMTDefaultTranslatorPlugin
     return array_keys($this->languageMappings);
   }
 
-
+  /**
+   * Zanata can only translate from en-US at the moment. Using any en locale as a good approximation.
+   */
   public function canTranslate(TMGMTTranslator $translator, TMGMTJob $job) {
-    // FIXME this is too broad
-    return TRUE;
+    // TODO also check that target_language is supported
+    return substr($job->source_language, 0, 2) === 'en';
   }
 
+  public function getNotCanTranslateReason(TMGMTJob $job) {
+    // FIXME check target_language and source_language explicitly and generate the correct message
+    $source_lang = $job->source_language;
+    return "\"{$source_lang}\" is not a valid source language. Zanata currently only handles source strings in English locales.";
+  }
 
   /**
    * Implements TMGMTTranslatorPluginControllerInterface::requestTranslation().
