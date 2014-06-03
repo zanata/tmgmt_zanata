@@ -63,26 +63,18 @@ class TMGMTZanataTranslatorPluginController extends TMGMTDefaultTranslatorPlugin
     $username = $translator->getSetting('username');
     $api_key = $translator->getSetting('api_key');
 
-
     foreach ($job->getItems() as $job_item) {
-
-      // $doc_id = $job_item->item_type . '/' . $job_item->item_id; // was having some issues with the '/' in the path, need %2F but encode path may not be doing that
-      $doc_id = $job_item->item_type . $job_item->item_id;
-
-      $encoded_id = drupal_encode_path($doc_id);
-
-      $url = "{$base_url}/{$encoded_id}";
-
+      $url = _tmgmt_zanata_item_url($base_url, $job_item);
 
       // FIXME make sure plugin only allows en-US to other languages
       // JSON format for source doc is at https://zanata.ci.cloudbees.com/job/zanata-api-site/site/zanata-common-api/rest-api-docs/el_ns0_resource.html
       $data = array(
-        'contentType' => 'text/plain', // required!
+        'contentType' => 'text/plain', // required
         'lang' => 'en-US', // required! TODO use source language, if Zanata can handle it
         'textFlows' => $this->prepareStrings($job_item),
         'type' => 'FILE', // required! can be FILE, DOCUMENT or PAGE (what does this even mean?)
         // 'revision' => 2, // TODO make sure this doesn't call failure of second upload. Not listed as required...
-        // 'extensions' => array(), // TODO check if this is optional and leave it off
+        // 'extensions' => array(), // TODO look at using this for source comments
       );
 
       $options = array(
@@ -98,10 +90,19 @@ class TMGMTZanataTranslatorPluginController extends TMGMTDefaultTranslatorPlugin
 
       drupal_http_request($url, $options);
 
-      $job_item->addMessage("added to Zanata at {$url}");
+      $doc_id = _tmgmt_zanata_item_doc_id($job_item);
+      $title = $this->getTitle($job_item);
+      $job_item->addMessage("Item \"{$title}\" sent to Zanata as document \"{$doc_id}\"");
     }
 
-    $job->submitted('Job has been pretend-submitted to Zanata for translation');
+    $job->submitted('Job has been submitted to Zanata for translation.');
+  }
+
+  protected function getTitle(TMGMTJobItem $job_item) {
+    $job_data = $job_item->getData();
+    // FIXME defensive access, don't want to fail if node title is not set
+    $title_data = $job_data['node_title'];
+    return $title_data['#text'];
   }
 
   /**

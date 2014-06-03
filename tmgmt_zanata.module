@@ -31,12 +31,21 @@ function tmgmt_zanata_tmgmt_translator_plugin_info() {
 /**
  * Returns the base REST URL for documents in the configured project/version
  */
-function _tmgmt_zanata_base_url($translator) {
-  $server_url = $translator->getSetting('server'); //'http://localhost:8080/zanata';
-  $project_id = $translator->getSetting('project'); //'drupal-test';
-  $version_id = $translator->getSetting('version'); // '1'
+function _tmgmt_zanata_base_url(TMGMTTranslator $translator) {
+  $server_url = $translator->getSetting('server');
+  $project_id = $translator->getSetting('project');
+  $version_id = $translator->getSetting('version');
 
   return "{$server_url}/rest/projects/p/{$project_id}/iterations/i/{$version_id}/r";
+}
+
+function _tmgmt_zanata_item_doc_id($job_item) {
+  return "{$job_item->item_type}/{$job_item->item_id}";
+}
+
+function _tmgmt_zanata_item_url($base_url, TMGMTJobItem $job_item) {
+  $encoded_id = strtr(_tmgmt_zanata_item_doc_id($job_item), '/', ',');
+  return "{$base_url}/{$encoded_id}";
 }
 
 
@@ -44,18 +53,12 @@ function _tmgmt_zanata_base_url($translator) {
  * Callback used to poll for translations in the UI checkoutInfo form
  */
 function tmgmt_zanata_poll_translations($form, &$form_state) {
-  watchdog('tmgmt_zanata', 'Called tmgmt_zanata_poll_translations');
-  // FIXME remove duplication between this and requestTranslation()
-
   $job = $form_state['tmgmt_job'];
   $base_url = _tmgmt_zanata_base_url($job->getTranslator());
 
-
-
   foreach ($job->getItems() as $job_item) {
-    $doc_id = $job_item->item_type . $job_item->item_id;
-    $encoded_id = drupal_encode_path($doc_id);
-    $url = "{$base_url}/{$encoded_id}/translations/de"; // TODO use appropriate language for the job
+    // FIXME use appropriate language for the job
+    $url = _tmgmt_zanata_item_url($base_url, $job_item) . '/translations/de';
 
     $options = array(
       'headers' => array(
