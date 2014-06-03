@@ -29,8 +29,32 @@ class TMGMTZanataTranslatorPluginController extends TMGMTDefaultTranslatorPlugin
   }
 
   public function isAvailable(TMGMTTranslator $translator) {
-    // TODO check for presence of username and api key
-    return TRUE;
+    return $translator->getSetting('server')
+        && $translator->getSetting('project')
+        && $translator->getSetting('version')
+        && $translator->getSetting('username')
+        && $translator->getSetting('api_key');
+  }
+
+  public function getNotAvailableReason(TMGMTTranslator $translator) {
+    $items = array();
+    if (!$translator->getSetting('server')) {
+      $items[] = 'Zanata server';
+    }
+    if (!$translator->getSetting('project')) {
+      $items[] = 'Project ID';
+    }
+    if (!$translator->getSetting('version')) {
+      $items[] = 'Version ID';
+    }
+    if (!$translator->getSetting('username')) {
+      $items[] = 'username';
+    }
+    if (!$translator->getSetting('api_key')) {
+      $items[] = 'API key';
+    }
+    $items_string = implode (", ", $items);
+    return t("Configuration value needed for {$items_string}.");
   }
 
 
@@ -38,11 +62,6 @@ class TMGMTZanataTranslatorPluginController extends TMGMTDefaultTranslatorPlugin
   public function getSupportedTargetLanguages(TMGMTTranslator $translator, $source_language) {
     // FIXME make this more discerning
     // default implementaion removes the none language and the source language
-
-    // FIXME was indicating that languageMappings was undefined.
-    //       maybe it was calling it from a different context so the $this was different...
-
-    // or (trying now) I accidentally left the $ in front of languageMappings.
     return array_keys($this->languageMappings);
   }
 
