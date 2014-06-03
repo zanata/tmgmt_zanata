@@ -26,4 +26,126 @@ function tmgmt_zanata_tmgmt_translator_plugin_info() {
 }
 
 
+/**
+ * Callback used to poll for translations in the UI checkoutInfo form
+ */
+function tmgmt_zanata_poll_translations($form, &$form_state) {
+  watchdog('tmgmt_zanata', 'Called tmgmt_zanata_poll_translations');
+  // FIXME remove duplication between this and requestTranslation()
+
+  $job = $form_state['tmgmt_job'];
+
+
+  // build/get base URL
+  $server_url = 'http://localhost:8080/zanata';
+  $project_id = 'drupal-test';
+  $version_id = '1';
+
+  $base_url = "{$server_url}/rest/projects/p/{$project_id}/iterations/i/{$version_id}/r";
+
+
+
+
+  // THIS WORKS!
+  foreach ($job->getItems() as $job_item) {
+    $doc_id = $job_item->item_type . $job_item->item_id;
+    $encoded_id = drupal_encode_path($doc_id);
+    $url = "{$base_url}/{$encoded_id}/translations/de"; // TODO use appropriate language for the job
+
+    $options = array(
+      'headers' => array(
+        'Accept' => 'application/json',
+      ),
+    );
+
+    $response = drupal_http_request($url, $options);
+
+    // watchdog('tmgmt_zanata', 'requested: ' . $response->request);
+
+
+    // This outputs the expected thing, with "data" being a string of JSON
+    watchdog('tmgmt_zanata', 'response: ' . json_encode($response));
+
+
+    if ($response->code != 200) {
+      $job_item->addMessage("tried to update translations but got response code " . $response->code);
+    } else {
+
+      $data = drupal_json_decode($response->data);
+
+      // This successfully prints the resId of one of the translations
+      watchdog('tmgmt_zanata', $data['textFlowTargets'][0]['resId']);
+
+      $targets = $data['textFlowTargets'];
+
+      // The appropriate thing to do is call $job_item->addTranslatedData($data)
+      // Where $data is a nested or flattened array holding only the changed
+      // data.
+
+      $translated = array();
+
+      foreach ($targets as $target) {
+        // $state = $target['state']; // e.g. "Approved"
+
+        // FIXME be sure to deal with translated/reviewed properly
+        if ($target['state'] == 'Approved') {
+          $key = (string) $target['resId'];
+          // $content = $target['content']; // i.e. the actual translation
+          $translated[$key]['#text'] = (string) $target['content'];
+        }
+      }
+
+      $expanded_translated = tmgmt_unflatten_data($translated);
+
+      watchdog('tmgmt_zanata', 'the following data seems to be choking the data function');
+      watchdog('tmgmt_zanata', json_encode($expanded_translated));
+
+      $job_item->addTranslatedData($expanded_translated);
+
+      // $raw_data = $response->data;
+      // $data = json_decode($raw_data);
+      // watchdog('tmgmt_zanata', 'raw data looks like this: ' . var_dump($raw_data));
+      // watchdog('tmgmt_zanata', 'json_decode of the data looks like this: ' . var_dump($data));
+
+      // NOTE might need the source strings to actually make sense of the data.
+    }
+
+
+
+    // watchdog('tmgmt_zanata', 'got response with status code: ' . $response->code);
+    // watchdog('tmgmt_zanata', 'got data in response: ' . $response->data);
+
+
+
+    // build doc id
+    // fetch doc for id using a 'GET' request
+    // decode the json
+    // update the state of the translation based on that
+    // $job_item->addMessage("Looped this job item in the translation polling function");
+    // watchdog('tmgmt_zanata', 'looped another job item ' . $job_item->item_type . '/' . $job_item->item_id);
+  }
+
+
+
+
+
+  // FIXME not sure if I need to look up the job, or if I already have it.
+
+
+
+  // This actually seems to have a bunch of things in it already with the id:
+  // watchdog('tmgmt_zanata', json_encode($form_state));
+  // $form_state->build_info->args[0]->tjid;
+  // $form_state->tmgmt_job->tjid; // suspect this may be used to magically inject the job object
+  // $form_state->input->tjid; // not sure what this is
+  // $form_state->values->tjid; // pretty sure this is the one where I added the hidden field, and maybe the above is also
+
+  
+
+  // watchdog('tmgmt_zanata', 'The id is: ' . $job->tjid);
+
+
+  // watchdog('tmgmt_zanata', $form_state['values']['tjid']);
+}
+
   // TODO make it auto-created

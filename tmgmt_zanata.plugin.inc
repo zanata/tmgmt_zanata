@@ -91,7 +91,7 @@ class TMGMTZanataTranslatorPluginController extends TMGMTDefaultTranslatorPlugin
           'X-Auth-User' => 'admin', // FIXME get from config
           'X-Auth-Token' => 'b6d7044e9ee3b2447c28fb7c50d86d98', // FIXME get from config
           'Content-Type' => 'application/json',
-          'Accept: application/json',
+          'Accept' => 'application/json',
         ),
         'data' => json_encode($data),
       );
