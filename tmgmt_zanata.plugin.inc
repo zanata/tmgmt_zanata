@@ -140,6 +140,9 @@ class TMGMTZanataTranslatorPluginController extends TMGMTDefaultTranslatorPlugin
         && $translator->getSetting('api_key');
   }
 
+  /**
+   *Implements TMGMTTranslatorPluginControllerInterface::getNotAvailableReason().
+   */
   public function getNotAvailableReason(TMGMTTranslator $translator) {
     $items = array();
     if (!$translator->getSetting('server')) {
@@ -160,7 +163,6 @@ class TMGMTZanataTranslatorPluginController extends TMGMTDefaultTranslatorPlugin
     $items_string = implode (", ", $items);
     return t("Configuration value needed for {$items_string}.");
   }
-
 
 
   public function getSupportedTargetLanguages(TMGMTTranslator $translator, $source_language) {
