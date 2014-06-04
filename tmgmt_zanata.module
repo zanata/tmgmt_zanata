@@ -54,11 +54,14 @@ function _tmgmt_zanata_item_url($base_url, TMGMTJobItem $job_item) {
  */
 function tmgmt_zanata_poll_translations($form, &$form_state) {
   $job = $form_state['tmgmt_job'];
-  $base_url = _tmgmt_zanata_base_url($job->getTranslator());
+  $translator = $job->getTranslator();
+  $base_url = _tmgmt_zanata_base_url($translator);
+  $locale = $translator->getController()->mapToRemoteLanguage($translator, $job->target_language);
+
+  // FIXME skip any item that is completed (to avoid excess network traffic)
 
   foreach ($job->getItems() as $job_item) {
-    // FIXME use appropriate language for the job
-    $url = _tmgmt_zanata_item_url($base_url, $job_item) . '/translations/de';
+    $url = _tmgmt_zanata_item_url($base_url, $job_item) . '/translations/' . $locale;
 
     $options = array(
       'headers' => array(
@@ -71,9 +74,13 @@ function tmgmt_zanata_poll_translations($form, &$form_state) {
     // FIXME server returns 404 for documents that have no translations,
     //       handle this more sensibly.
     if ($response->code != 200) {
-      drupal_set_message(t('There was a problem fetching translations from the service. See MESSAGES below.'), 'warning', FALSE);
-      $job_item->addMessage('Tried to update translations but got response code @code.',
-                            array('@code' => $response->code));
+      if ($response->code == 404) {
+        $job_item->addMessage(t('No translations are available yet.'));
+      } else {
+        drupal_set_message(t('There was a problem fetching translations from the service. See messages below.'), 'warning', FALSE);
+        $job_item->addMessage(t('Tried to update translations but got response code @code.'),
+                              array('@code' => $response->code));
+      }
     } else {
       $data = drupal_json_decode($response->data);
       $targets = $data['textFlowTargets'];
