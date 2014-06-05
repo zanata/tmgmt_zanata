@@ -260,30 +260,33 @@ class TMGMTZanataTranslatorPluginController extends TMGMTDefaultTranslatorPlugin
 
       $response = drupal_http_request($url, $options);
 
-      $title = $this->getTitle($job_item);
-
       if ($response->code != 200) {
-        $job_item->addMessage("Item \"{$title}\" was not successfully sent to Zanata. Status code: @code.",
-          array('@code' => $response->code), 'error');
         $all_responses_ok_so_far = FALSE;
+        $job_item->addMessage(
+          t('Item "@title" was not successfully sent to Zanata. Status code: @code.'),
+          array(
+            '@title' => $job_item->defaultLabel(),
+            '@code' => $response->code,
+          ), 'error');
       } else {
-        $doc_id = _tmgmt_zanata_item_doc_id($job_item);
-        $job_item->addMessage("Item \"{$title}\" sent to Zanata as document \"{$doc_id}\"");
+        $job_item->addMessage(
+          t('Item "@title" sent to Zanata as document "@doc_id".'),
+          array(
+            '@title' => $job_item->defaultLabel(),
+            '@doc_id' => _tmgmt_zanata_item_doc_id($job_item),
+          )
+        );
       }
     }
 
     if ($all_responses_ok_so_far) {
-      $job->submitted(t('Job has been submitted to Zanata for translation.'));
+      $job->submitted(t('All items have been submitted to Zanata for translation.'));
     } else {
-      $job->addMessage(t('One or more items were not successfully sent to Zanata. Try again after correcting the problem items.'), array(), 'error');
+      // TODO include count of failed items
+      $job->addMessage(
+        t('One or more items were not successfully sent to Zanata. Try again after correcting the problem items.'),
+        array(), 'error');
     }
-  }
-
-  protected function getTitle(TMGMTJobItem $job_item) {
-    $job_data = $job_item->getData();
-    // FIXME defensive access, don't want to fail if node title is not set
-    $title_data = $job_data['node_title'];
-    return $title_data['#text'];
   }
 
   /**
