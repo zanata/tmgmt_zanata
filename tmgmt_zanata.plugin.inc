@@ -293,11 +293,17 @@ class TMGMTZanataTranslatorPluginController extends TMGMTDefaultTranslatorPlugin
     $data = $job_item->getData();
     $data = array_filter(tmgmt_flatten_data($job_item->getData()), '_tmgmt_filter_data');
 
+    // The document on Zanata should have the title at the beginning to help
+    // translators understand the context.
+    if (array_key_exists('node_title', $data)) {
+      $data = array('node_title' => $data['node_title']) + $data;
+    }
+
     $items = array();
     foreach ($data as $key => $value) {
       $items[] = array(
         'id' => $key,
-        'lang' => 'en-US',
+        'lang' => 'en-US', // Zanata can only handle source as en-US locale
         'content' => $value['#text'],
         'contents' => NULL,
         'plural' => FALSE,
