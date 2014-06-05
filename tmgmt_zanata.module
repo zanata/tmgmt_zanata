@@ -71,10 +71,9 @@ function tmgmt_zanata_poll_translations($form, &$form_state) {
 
     $response = drupal_http_request($url, $options);
 
-    // FIXME server returns 404 for documents that have no translations,
-    //       handle this more sensibly.
     if ($response->code != 200) {
       if ($response->code == 404) {
+        // this may not really be worth logging, is could just be considered noise
         $job_item->addMessage(t('No translations are available yet.'));
       } else {
         drupal_set_message(t('There was a problem fetching translations from the service. See messages below.'), 'warning', FALSE);
