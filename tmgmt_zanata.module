@@ -28,17 +28,6 @@ function tmgmt_zanata_tmgmt_translator_plugin_info() {
   );
 }
 
-/**
- * Returns the base REST URL for documents in the configured project/version
- */
-function _tmgmt_zanata_base_url(TMGMTTranslator $translator) {
-  $server_url = $translator->getSetting('server');
-  $project_id = $translator->getSetting('project');
-  $version_id = $translator->getSetting('version');
-
-  return "{$server_url}/rest/projects/p/{$project_id}/iterations/i/{$version_id}/r";
-}
-
 function _tmgmt_zanata_item_doc_id($job_item) {
   return "{$job_item->item_type}/{$job_item->item_id}";
 }
@@ -66,8 +55,9 @@ function tmgmt_zanata_resubmit_translations($form, &$form_state) {
 function tmgmt_zanata_poll_translations($form, &$form_state) {
   $job = $form_state['tmgmt_job'];
   $translator = $job->getTranslator();
-  $base_url = _tmgmt_zanata_base_url($translator);
   $controller = $translator->getController();
+  $connector = $controller->getConnector($translator);
+  $base_url = $connector->getBaseUrl();
   $locale = $controller->mapToRemoteLanguage($translator, $job->target_language);
 
   $base_options = $controller->getBaseOptions($translator);

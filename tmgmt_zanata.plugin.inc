@@ -249,7 +249,8 @@ class TMGMTZanataTranslatorPluginController extends TMGMTDefaultTranslatorPlugin
   public function requestTranslation(TMGMTJob $job, $skip_submitted = TRUE) {
 
     $translator = $job->getTranslator();
-    $base_url = _tmgmt_zanata_base_url($translator);
+    $connector = $translator->getController()->getConnector($translator);
+    $base_url = $connector->getBaseUrl();
 
     $all_submissions_worked = TRUE;
 
@@ -363,6 +364,10 @@ class TMGMTZanataTranslatorPluginController extends TMGMTDefaultTranslatorPlugin
     }
 
     return $items;    
+  }
+
+  public function getConnector(TMGMTTranslator $translator) {
+    return new ZanataConnector($translator);
   }
 
 }
