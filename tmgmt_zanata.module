@@ -48,6 +48,17 @@ function _tmgmt_zanata_item_url($base_url, TMGMTJobItem $job_item) {
   return "{$base_url}/{$encoded_id}";
 }
 
+function _tmgmt_zanata_translation_url($base_url, TMGMTJobItem $job_item, $locale) {
+  return _tmgmt_zanata_item_url($base_url, $job_item) . '/translations/' . $locale;
+}
+
+
+function tmgmt_zanata_resubmit_translations($form, &$form_state) {
+  $job = $form_state['tmgmt_job'];
+  $translator = $job->getTranslator();
+  $controller = $translator->getController();
+  $controller->resubmitTranslation($job);
+}
 
 /**
  * Callback used to poll for translations in the UI checkoutInfo form
@@ -56,18 +67,18 @@ function tmgmt_zanata_poll_translations($form, &$form_state) {
   $job = $form_state['tmgmt_job'];
   $translator = $job->getTranslator();
   $base_url = _tmgmt_zanata_base_url($translator);
-  $locale = $translator->getController()->mapToRemoteLanguage($translator, $job->target_language);
+  $controller = $translator->getController();
+  $locale = $controller->mapToRemoteLanguage($translator, $job->target_language);
+
+  $base_options = $controller->getBaseOptions($translator);
+
 
   // FIXME skip any item that is completed (to avoid excess network traffic)
 
   foreach ($job->getItems() as $job_item) {
-    $url = _tmgmt_zanata_item_url($base_url, $job_item) . '/translations/' . $locale;
+    $url = _tmgmt_zanata_translation_url($base_url, $job_item, $locale);
 
-    $options = array(
-      'headers' => array(
-        'Accept' => 'application/json',
-      ),
-    );
+    $options = $base_options;
 
     $response = drupal_http_request($url, $options);
 
@@ -77,8 +88,10 @@ function tmgmt_zanata_poll_translations($form, &$form_state) {
         $job_item->addMessage(t('No translations are available yet.'));
       } else {
         drupal_set_message(t('There was a problem fetching translations from the service. See messages below.'), 'warning', FALSE);
-        $job_item->addMessage(t('Tried to update translations but got response code @code.'),
-                              array('@code' => $response->code));
+        $job_item->addMessage(t('Tried to update translations but got response code @code when fetching URL @url.'),
+                              array(
+                                '@code' => $response->code,
+                                '@url' => $url));
       }
     } else {
       $data = drupal_json_decode($response->data);

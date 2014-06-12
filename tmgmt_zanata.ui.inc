@@ -79,10 +79,17 @@ class TMGMTZanataTranslatorUIController extends TMGMTDefaultTranslatorUIControll
     //      use '#access' key on the button, with an appropriate check on the job such
     //      as $job->isSubmitted() if that exists
     $info['actions']['poll'] = array(
-      '#type' => 'submit', // type 'button' is also available, but I am not sure how to attach that to a function
+      '#type' => 'submit',
       '#value' => t('Update translation info'),
       '#description' => t('Check for updated translations on the Zanata server.'),
       '#submit' => array('tmgmt_zanata_poll_translations'),
+    );
+
+    $info['actions']['resubmit'] = array(
+      '#type' => 'submit',
+      '#value' => t('Resubmit to translator'),
+      '#description' => t('Send the source text to the Zanata server again.'),
+      '#submit' => array('tmgmt_zanata_resubmit_translations'),
     );
 
     return $info;
