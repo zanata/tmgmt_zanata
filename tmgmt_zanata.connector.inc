@@ -30,4 +30,29 @@ class ZanataConnector {
     return "{$this->server_url}/rest/projects/p/{$this->project_id}/iterations/i/{$this->version_id}/r";
   }
 
+  /**
+   * @return the unencoded document id on Zanata for the given job item
+   */
+  function getDocId($job_item) {
+    return "{$job_item->item_type}/{$job_item->item_id}";
+  }
+
+  /**
+   * @return the REST URL for the given job item
+   */
+  function getItemUrl(TMGMTJobItem $job_item) {
+    $encoded_id = strtr($this->getDocId($job_item), '/', ',');
+    return "{$this->getBaseUrl()}/{$encoded_id}";
+  }
+
+  /**
+   * @return the REST URL for the translations of the given job item for the given locale
+   */
+  function getItemTranslationUrl(TMGMTJobItem $job_item, $locale) {
+    return $this->getItemUrl($job_item) . '/translations/' . $locale;
+  }
+
+
+
+
 }

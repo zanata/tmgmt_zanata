@@ -28,20 +28,6 @@ function tmgmt_zanata_tmgmt_translator_plugin_info() {
   );
 }
 
-function _tmgmt_zanata_item_doc_id($job_item) {
-  return "{$job_item->item_type}/{$job_item->item_id}";
-}
-
-function _tmgmt_zanata_item_url($base_url, TMGMTJobItem $job_item) {
-  $encoded_id = strtr(_tmgmt_zanata_item_doc_id($job_item), '/', ',');
-  return "{$base_url}/{$encoded_id}";
-}
-
-function _tmgmt_zanata_translation_url($base_url, TMGMTJobItem $job_item, $locale) {
-  return _tmgmt_zanata_item_url($base_url, $job_item) . '/translations/' . $locale;
-}
-
-
 function tmgmt_zanata_resubmit_translations($form, &$form_state) {
   $job = $form_state['tmgmt_job'];
   $translator = $job->getTranslator();
@@ -66,7 +52,7 @@ function tmgmt_zanata_poll_translations($form, &$form_state) {
   // FIXME skip any item that is completed (to avoid excess network traffic)
 
   foreach ($job->getItems() as $job_item) {
-    $url = _tmgmt_zanata_translation_url($base_url, $job_item, $locale);
+    $url = $connector->getItemTranslationUrl($job_item, $locale);
 
     $options = $base_options;
 

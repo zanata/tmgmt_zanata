@@ -250,7 +250,6 @@ class TMGMTZanataTranslatorPluginController extends TMGMTDefaultTranslatorPlugin
 
     $translator = $job->getTranslator();
     $connector = $translator->getController()->getConnector($translator);
-    $base_url = $connector->getBaseUrl();
 
     $all_submissions_worked = TRUE;
 
@@ -268,7 +267,7 @@ class TMGMTZanataTranslatorPluginController extends TMGMTDefaultTranslatorPlugin
         }
       }
 
-      $submitted = $this->requestItemTranslation($job_item, $base_url, $base_options);
+      $submitted = $this->requestItemTranslation($job_item, $connector, $base_options);
       $all_submissions_worked = $submitted && $all_submissions_worked;
     }
 
@@ -288,8 +287,8 @@ class TMGMTZanataTranslatorPluginController extends TMGMTDefaultTranslatorPlugin
    *
    * @return TRUE if the source was submitted successfully, FALSE otherwise
    */
-  private function requestItemTranslation(TMGMTJobItem $job_item, $base_url, $base_options) {
-    $url = _tmgmt_zanata_item_url($base_url, $job_item);
+  private function requestItemTranslation(TMGMTJobItem $job_item, $connector, $base_options) {
+    $url = $connector->getItemUrl($job_item);
     $options = $base_options; // makes a copy
 
     $common_data = array(
@@ -310,7 +309,7 @@ class TMGMTZanataTranslatorPluginController extends TMGMTDefaultTranslatorPlugin
 
     // TODO change to a switch to more clearly deal with additional status codes
     if ($response->code == 200 || $response->code == 201) {
-      $doc_id = _tmgmt_zanata_item_doc_id($job_item);
+      $doc_id = $connector->getDocId($job_item);
       $job_item->addMessage(
         t('Item "@title" sent to Zanata as document "@doc_id".'),
         array(
