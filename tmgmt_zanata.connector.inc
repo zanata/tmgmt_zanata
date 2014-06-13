@@ -71,7 +71,7 @@ class ZanataConnector {
    */
   public function pollTranslations() {
     $job = $this->job;
-    $base_options = $this->controller->getBaseOptions($this->translator);
+    $base_options = $this->getBaseOptions();
 
     // FIXME skip any item that is completed (to avoid excess network traffic)
 
@@ -122,4 +122,132 @@ class ZanataConnector {
     return $this->controller->mapToRemoteLanguage($this->translator, $this->job->target_language);
   }
 
+  /**
+   * @return options for a HTTP request that include authorization information
+   *         and content type headers.
+   */
+  public function getBaseOptions() {
+    return array(
+      'headers' => array(
+        'X-Auth-User' => $this->username,
+        'X-Auth-Token' => $this->api_key,
+        'Content-Type' => 'application/json',
+        'Accept' => 'application/json',
+      ),
+    );
+  }
+
+  public function requestTranslation($skip_submitted = TRUE) {
+    $all_submissions_worked = TRUE;
+    $base_options = $this->getBaseOptions();
+    $base_options['method'] = 'PUT';
+
+    foreach ($this->job->getItems() as $job_item) {
+      // only ever expect a single mapping
+      if ($skip_submitted) {
+        $mapping = reset($job_item->getRemoteMappings());
+        if ($mapping) { // there is a mapping, only added when submitting
+          drupal_set_message(t('Skipped an item because it has already been submitted'));
+          continue;
+        }
+      }
+
+      $submitted = $this->requestItemTranslation($job_item, $base_options);
+      $all_submissions_worked = $submitted && $all_submissions_worked;
+    }
+
+    if ($all_submissions_worked) {
+      $this->job->submitted(t('All items have been submitted to Zanata for translation.'));
+    }
+    else {
+      // TODO include count of failed items
+      $this->job->addMessage(
+        t('One or more items were not successfully sent to Zanata. Try again after correcting the problem items.'),
+        array(), 'error');
+    }
+  }
+
+  /**
+   * Request translation for a single item.
+   *
+   * @return TRUE if the source was submitted successfully, FALSE otherwise
+   */
+  private function requestItemTranslation(TMGMTJobItem $job_item, $base_options) {
+    $url = $this->getItemUrl($job_item);
+    $options = $base_options; // makes a copy
+
+    $common_data = array(
+      'contentType' => 'text/plain', // required
+      'lang' => 'en-US', // required! TODO use source language, if Zanata can handle it
+      'type' => 'FILE', // required! can be FILE, DOCUMENT or PAGE (what does this even mean?)
+      // 'revision' => 2, // TODO make sure this doesn't call failure of second upload. Not listed as required...
+      // 'extensions' => array(), // TODO look at using this for source comments
+    );
+    $data = $common_data;
+    $data['textFlows'] = $this->prepareStrings($job_item);
+
+    $options['data'] = json_encode($data);
+
+    // TODO consider copytrans
+
+    $response = drupal_http_request($url, $options);
+
+    // TODO change to a switch to more clearly deal with additional status codes
+    if ($response->code == 200 || $response->code == 201) {
+      $doc_id = $this->getDocId($job_item);
+      $job_item->addMessage(
+        t('Item "@title" sent to Zanata as document "@doc_id".'),
+        array(
+          '@title' => $job_item->defaultLabel(),
+          '@doc_id' => $doc_id,
+        )
+      );
+
+      // add doc_id as remote_identifier_1, full URL as remote_url
+      $job_item->addRemoteMapping(NULL, $doc_id, array(
+        'remote_url' => $url,
+      ));
+      return TRUE;
+    }
+    else {
+      // TODO give specific message for 401 unauthorized that prompts to check
+      //      username and API key
+      $job_item->addMessage(
+        t('Item "@title" was not successfully sent to Zanata. Status code: @code.'),
+        array(
+          '@title' => $job_item->defaultLabel(),
+          '@code' => $response->code,
+        ), 'error');
+      return FALSE;
+    }
+  }
+
+  /**
+   * @return an array of text flow arrays ready to encode as JSON and send to Zanata server
+   */
+  protected function prepareStrings(TMGMTJobItem $job_item) {
+    $data = $job_item->getData();
+    $data = array_filter(tmgmt_flatten_data($job_item->getData()), '_tmgmt_filter_data');
+
+    // The document on Zanata should have the title at the beginning to help
+    // translators understand the context.
+    if (array_key_exists('node_title', $data)) {
+      $data = array('node_title' => $data['node_title']) + $data;
+    }
+
+    $items = array();
+    foreach ($data as $key => $value) {
+      $items[] = array(
+        'id' => $key,
+        'lang' => 'en-US', // Zanata can only handle source as en-US locale
+        'content' => $value['#text'],
+        'contents' => NULL,
+        'plural' => FALSE,
+        'extensions' => array(),
+        'revision' => 1
+      );
+    }
+
+    return $items;
+  }
 }
