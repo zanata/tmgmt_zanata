@@ -124,7 +124,7 @@ class TMGMTZanataTranslatorPluginController extends TMGMTDefaultTranslatorPlugin
   }
 
   /**
-   *Implements TMGMTTranslatorPluginControllerInterface::getSupportedRemoteLanguages().
+   * Implements TMGMTTranslatorPluginControllerInterface::getSupportedRemoteLanguages().
    *
    * @return all supported languages of the translator.
    */
@@ -132,6 +132,9 @@ class TMGMTZanataTranslatorPluginController extends TMGMTDefaultTranslatorPlugin
     return array_values($this->languageMappings);
   }
 
+  /**
+   * Implements TMGMTTranslatorPluginControllerInterface::isAvailable().
+   */
   public function isAvailable(TMGMTTranslator $translator) {
     return $translator->getSetting('server')
         && $translator->getSetting('project')
@@ -141,7 +144,7 @@ class TMGMTZanataTranslatorPluginController extends TMGMTDefaultTranslatorPlugin
   }
 
   /**
-   *Implements TMGMTTranslatorPluginControllerInterface::getNotAvailableReason().
+   * Implements TMGMTTranslatorPluginControllerInterface::getNotAvailableReason().
    */
   public function getNotAvailableReason(TMGMTTranslator $translator) {
     $items = array();
@@ -160,20 +163,28 @@ class TMGMTZanataTranslatorPluginController extends TMGMTDefaultTranslatorPlugin
     if (!$translator->getSetting('api_key')) {
       $items[] = 'API key';
     }
-    $items_string = implode (", ", $items);
+    $items_string = implode(", ", $items);
     return t("Configuration value needed for {$items_string}.");
   }
 
-
+  /**
+   * Implements TMGMTTranslatorPluginControllerInterface::getSupportedTargetLanguages().
+   */
   public function getSupportedTargetLanguages(TMGMTTranslator $translator, $source_language) {
     return array_keys($this->languageMappings);
   }
 
+  /**
+   * Implements TMGMTTranslatorPluginControllerInterface::canTranslate().
+   */
   public function canTranslate(TMGMTTranslator $translator, TMGMTJob $job) {
     $result = $this->canTranslateWithReason($translator, $job);
     return $result['can translate'];
   }
 
+  /**
+   * Implements TMGMTTranslatorPluginControllerInterface::getNotCanTranslateReason().
+   */
   public function getNotCanTranslateReason(TMGMTJob $job) {
     $translator = $job->getTranslator();
     $result = $this->canTranslateWithReason($translator, $job);
@@ -184,7 +195,12 @@ class TMGMTZanataTranslatorPluginController extends TMGMTDefaultTranslatorPlugin
     return '';
   }
 
-  protected function canTranslateWithReason(TMGMTTranslator $translator, TMGMTJob $job) {
+  /**
+   * @return an associative array with 'can translate' indicating whether translation
+   *         is possible, and 'reason' containing a localised string with the reason
+   *         that translation is not possible.
+   */
+  private function canTranslateWithReason(TMGMTTranslator $translator, TMGMTJob $job) {
     $result = array();
 
     if (!$this->isAvailable($translator)) {
@@ -249,7 +265,7 @@ class TMGMTZanataTranslatorPluginController extends TMGMTDefaultTranslatorPlugin
   public function requestTranslation(TMGMTJob $job, $skip_submitted = TRUE) {
 
     $translator = $job->getTranslator();
-    $connector = $translator->getController()->getConnector($translator);
+    $connector = $translator->getController()->getConnector($job);
 
     $all_submissions_worked = TRUE;
 
@@ -273,7 +289,8 @@ class TMGMTZanataTranslatorPluginController extends TMGMTDefaultTranslatorPlugin
 
     if ($all_submissions_worked) {
       $job->submitted(t('All items have been submitted to Zanata for translation.'));
-    } else {
+    }
+    else {
       // TODO include count of failed items
       $job->addMessage(
         t('One or more items were not successfully sent to Zanata. Try again after correcting the problem items.'),
@@ -323,7 +340,8 @@ class TMGMTZanataTranslatorPluginController extends TMGMTDefaultTranslatorPlugin
         'remote_url' => $url,
       ));
       return TRUE;
-    } else {
+    }
+    else {
       // TODO give specific message for 401 unauthorized that prompts to check
       //      username and API key
       $job_item->addMessage(
@@ -362,11 +380,14 @@ class TMGMTZanataTranslatorPluginController extends TMGMTDefaultTranslatorPlugin
       );
     }
 
-    return $items;    
+    return $items;
   }
 
-  public function getConnector(TMGMTTranslator $translator) {
-    return new ZanataConnector($translator);
+  /**
+   * @return a new ZanataConnector for the given job.
+   */
+  public function getConnector(TMGMTJob $job) {
+    return new ZanataConnector($job);
   }
 
 }

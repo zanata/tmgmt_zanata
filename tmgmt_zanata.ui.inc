@@ -22,7 +22,7 @@ class TMGMTZanataTranslatorUIController extends TMGMTDefaultTranslatorUIControll
     $form['server'] = array(
       '#type' => 'textfield', // TODO check whether there is a specific type for URLs
       '#title' => t('Zanata server URL'),
-      '#description' => t('Base URL for the Zanata server. This should not include a / at the end. e.g. http://translate.zanata.org'),
+      '#description' => t('Base URL for the Zanata server. This should not include a / at the end, for example, http://translate.zanata.org'),
       '#size' => 120,
       '#required' => TRUE,
       '#default_value' => $translator->getSetting('server'),

@@ -10,7 +10,7 @@
  */
 
 /**
- * Implements hook_tmgmt_translator_plugin_info()
+ * Implements hook_tmgmt_translator_plugin_info().
  */
 function tmgmt_zanata_tmgmt_translator_plugin_info() {
   return array(
@@ -28,13 +28,17 @@ function tmgmt_zanata_tmgmt_translator_plugin_info() {
   );
 }
 
+/**
+ * Callback used to force re-sending of all items in a job from the UI
+ * checkoutInfo form.
+ */
 function tmgmt_zanata_resubmit_translations($form, &$form_state) {
   $job = $form_state['tmgmt_job'];
   $job->getTranslatorController()->resubmitTranslation($job);
 }
 
 /**
- * Callback used to poll for translations in the UI checkoutInfo form
+ * Callback used to poll for translations in the UI checkoutInfo form.
  */
 function tmgmt_zanata_poll_translations($form, &$form_state) {
   $job = $form_state['tmgmt_job'];
