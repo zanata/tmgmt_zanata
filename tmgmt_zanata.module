@@ -30,9 +30,7 @@ function tmgmt_zanata_tmgmt_translator_plugin_info() {
 
 function tmgmt_zanata_resubmit_translations($form, &$form_state) {
   $job = $form_state['tmgmt_job'];
-  $translator = $job->getTranslator();
-  $controller = $translator->getController();
-  $controller->resubmitTranslation($job);
+  $job->getTranslatorController()->resubmitTranslation($job);
 }
 
 /**
@@ -40,50 +38,5 @@ function tmgmt_zanata_resubmit_translations($form, &$form_state) {
  */
 function tmgmt_zanata_poll_translations($form, &$form_state) {
   $job = $form_state['tmgmt_job'];
-  $translator = $job->getTranslator();
-  $controller = $translator->getController();
-  $connector = $controller->getConnector($translator);
-  $base_url = $connector->getBaseUrl();
-  $locale = $controller->mapToRemoteLanguage($translator, $job->target_language);
-
-  $base_options = $controller->getBaseOptions($translator);
-
-
-  // FIXME skip any item that is completed (to avoid excess network traffic)
-
-  foreach ($job->getItems() as $job_item) {
-    $url = $connector->getItemTranslationUrl($job_item, $locale);
-
-    $options = $base_options;
-
-    $response = drupal_http_request($url, $options);
-
-    if ($response->code != 200) {
-      if ($response->code == 404) {
-        // this may not really be worth logging, is could just be considered noise
-        $job_item->addMessage(t('No translations are available yet.'));
-      } else {
-        drupal_set_message(t('There was a problem fetching translations from the service. See messages below.'), 'warning', FALSE);
-        $job_item->addMessage(t('Tried to update translations but got response code @code when fetching URL @url.'),
-                              array(
-                                '@code' => $response->code,
-                                '@url' => $url));
-      }
-    } else {
-      $data = drupal_json_decode($response->data);
-      $targets = $data['textFlowTargets'];
-
-      $translated = array();
-      foreach ($targets as $target) {
-        // TODO map Zanata states sensibly to TMGMT states
-        if ($target['state'] == 'Approved') {
-          $key = (string) $target['resId'];
-          $translated[$key]['#text'] = (string) $target['content'];
-        }
-      }
-
-      $expanded_translated = tmgmt_unflatten_data($translated);
-      $job_item->addTranslatedData($expanded_translated);
-    }
-  }
+  $job->getTranslatorController()->getConnector($job)->pollTranslations();
 }
