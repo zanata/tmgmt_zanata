@@ -73,11 +73,17 @@ class ZanataConnector {
     $job = $this->job;
     $base_options = $this->getBaseOptions();
 
-    // FIXME skip any item that is completed (to avoid excess network traffic)
 
     foreach ($job->getItems() as $job_item) {
       $url = $this->getItemTranslationUrl($job_item);
       $options = $base_options;
+
+      // TODO consider skipping any item that is marked as completed, to avoid
+      //      excess network traffic. This would miss translations that have
+      //      been updated since the last check.
+
+      $this->setEtagHeaderFromItem($options, $job_item);
+
       $response = drupal_http_request($url, $options);
 
       switch ($response->code) {
@@ -95,6 +101,11 @@ class ZanataConnector {
           }
           $expanded_translated = tmgmt_unflatten_data($translated);
           $job_item->addTranslatedData($expanded_translated);
+          $this->saveResponseEtagForItem($response, $job_item);
+          break;
+
+        case 304: // not modified (i.e. etag matches)
+          $job_item->addMessage(t('No new translations are available yet.'));
           break;
 
         case 401:
@@ -116,6 +127,49 @@ class ZanataConnector {
       }
     }
   }
+
+  /**
+   * Store the etag from the response (if present) as remote mapping data in the
+   * given translation job item.
+   */
+  private function saveResponseEtagForItem($response, TMGMTJobItem $job_item) {
+    if (isset($response->headers['etag'])) {
+      $etag = $response->headers['etag'];
+      $mapping = $this->getRemoteMapping($job_item);
+      if ($mapping) {
+        $mapping->addRemoteData('etag', $etag);
+        $mapping->save();
+      }
+    }
+  }
+
+  /**
+   * Extract the stored etag (if present) from the remote mapping data of the
+   * given translation job item, and set it as the appropriate header in the
+   * given request options.
+   */
+  private function setEtagHeaderFromItem(&$request_options, $job_item) {
+    $mapping = $this->getRemoteMapping($job_item);
+    if ($mapping) {
+      $etag = $mapping->getRemoteData('etag');
+      if ($etag) {
+        $request_options['headers']['If-None-Match'] = $etag;
+      }
+    }
+  }
+
+  /**
+   * Get the first remote mapping for a translation job item.
+   *
+   * This connector is only using a single mapping for each item, so this should
+   * always return that mapping, if present.
+   */
+  private function getRemoteMapping(TMGMTJobItem $job_item) {
+    // only ever expecting a single mapping
+    // reset returns the internal array pointer to the first element and returns it.
+    return reset($job_item->getRemoteMappings());
+  }
+
 
   /**
    * Get the remote locale for the translation job.
@@ -145,9 +199,8 @@ class ZanataConnector {
     $base_options['method'] = 'PUT';
 
     foreach ($this->job->getItems() as $job_item) {
-      // only ever expect a single mapping
       if ($skip_submitted) {
-        $mapping = reset($job_item->getRemoteMappings());
+        $mapping = $this->getRemoteMapping($job_item);
         if ($mapping) { // there is a mapping, only added when submitting
           drupal_set_message(t('Skipped an item because it has already been submitted'));
           continue;
