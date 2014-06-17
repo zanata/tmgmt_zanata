@@ -77,40 +77,42 @@ class ZanataConnector {
 
     foreach ($job->getItems() as $job_item) {
       $url = $this->getItemTranslationUrl($job_item);
-
       $options = $base_options;
-
       $response = drupal_http_request($url, $options);
 
-      // TODO replace with switch
-      if ($response->code != 200) {
-        if ($response->code == 404) {
+      switch ($response->code) {
+        case 200:
+          $data = drupal_json_decode($response->data);
+          $targets = $data['textFlowTargets'];
+
+          $translated = array();
+          foreach ($targets as $target) {
+            // TODO map Zanata states sensibly to TMGMT states
+            if ($target['state'] == 'Approved') {
+              $key = (string) $target['resId'];
+              $translated[$key]['#text'] = (string) $target['content'];
+            }
+          }
+          $expanded_translated = tmgmt_unflatten_data($translated);
+          $job_item->addTranslatedData($expanded_translated);
+          break;
+
+        case 401:
+          drupal_set_message(t('There was an authorization problem, please check your username and API key in the translator configuration.'), 'warning', FALSE);
+          break;
+
+        case 404:
           // this may not really be worth logging, is could just be considered noise
           $job_item->addMessage(t('No translations are available yet.'));
-        }
-        else {
+          break;
+
+        default:
           drupal_set_message(t('There was a problem fetching translations from the service. See messages below.'), 'warning', FALSE);
           $job_item->addMessage(t('Tried to update translations but got response code @code when fetching URL @url.'),
                                 array(
                                   '@code' => $response->code,
                                   '@url' => $url));
-        }
-      }
-      else {
-        $data = drupal_json_decode($response->data);
-        $targets = $data['textFlowTargets'];
-
-        $translated = array();
-        foreach ($targets as $target) {
-          // TODO map Zanata states sensibly to TMGMT states
-          if ($target['state'] == 'Approved') {
-            $key = (string) $target['resId'];
-            $translated[$key]['#text'] = (string) $target['content'];
-          }
-        }
-
-        $expanded_translated = tmgmt_unflatten_data($translated);
-        $job_item->addTranslatedData($expanded_translated);
+          break;
       }
     }
   }
@@ -192,33 +194,44 @@ class ZanataConnector {
 
     $response = drupal_http_request($url, $options);
 
-    // TODO change to a switch to more clearly deal with additional status codes
-    if ($response->code == 200 || $response->code == 201) {
-      $doc_id = $this->getDocId($job_item);
-      $job_item->addMessage(
-        t('Item "@title" sent to Zanata as document "@doc_id".'),
-        array(
-          '@title' => $job_item->defaultLabel(),
-          '@doc_id' => $doc_id,
-        )
-      );
+    switch ($response->code) {
+      case 200:
+      case 201:
+        $doc_id = $this->getDocId($job_item);
+        $job_item->addMessage(
+          t('Item "@title" sent to Zanata as document "@doc_id".'),
+          array(
+            '@title' => $job_item->defaultLabel(),
+            '@doc_id' => $doc_id,
+          )
+        );
+        // add doc_id as remote_identifier_1, full URL as remote_url
+        $job_item->addRemoteMapping(NULL, $doc_id, array(
+          'remote_url' => $url,
+        ));
+        return TRUE;
+        break;
 
-      // add doc_id as remote_identifier_1, full URL as remote_url
-      $job_item->addRemoteMapping(NULL, $doc_id, array(
-        'remote_url' => $url,
-      ));
-      return TRUE;
-    }
-    else {
-      // TODO give specific message for 401 unauthorized that prompts to check
-      //      username and API key
-      $job_item->addMessage(
-        t('Item "@title" was not successfully sent to Zanata. Status code: @code.'),
-        array(
-          '@title' => $job_item->defaultLabel(),
-          '@code' => $response->code,
-        ), 'error');
-      return FALSE;
+      case 401:
+          drupal_set_message(t('There was an authorization problem, please check your username and API key in the translator configuration.'), 'error', FALSE);
+        $job_item->addMessage(
+          t('Item "@title" was not successfully sent to Zanata due to an authorization error.'),
+          array(
+            '@title' => $job_item->defaultLabel(),
+            '@code' => $response->code,
+          ), 'error');
+        return FALSE;
+        break;
+
+      default:
+        $job_item->addMessage(
+          t('Item "@title" was not successfully sent to Zanata. Status code: @code.'),
+          array(
+            '@title' => $job_item->defaultLabel(),
+            '@code' => $response->code,
+          ), 'error');
+        return FALSE;
+        break;
     }
   }
 
