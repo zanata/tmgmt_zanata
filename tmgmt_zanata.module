@@ -21,7 +21,7 @@ function tmgmt_zanata_tmgmt_translator_plugin_info() {
       'ui controller class' => 'TMGMTZanataTranslatorUIController',
       'auto create' => TRUE, // FIXME make sure auto create works properly
       'default settings' => array(
-        'server' => 'http://localhost:8080/zanata',
+        'server' => 'http://translate.zanata.org',
       ),
       // TODO look at other settings on the hook page
     ),
