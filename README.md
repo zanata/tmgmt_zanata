@@ -3,7 +3,9 @@
 TMGMT Zanata is a plugin for Drupal's Translation Management Module
 [TMGMT](https://drupal.org/project/tmgmt). The plugin can send content to a
 configured Zanata project for translation, and can download translations as
-they are ready.
+they are ready. Zanata is a web-based system for translators, content creators
+and developers to manage localisation projects
+(see [zanata.org](http://zanata.org/)).
 
 ## Requirements
 
