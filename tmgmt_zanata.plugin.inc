@@ -205,27 +205,35 @@ class TMGMTZanataTranslatorPluginController extends TMGMTDefaultTranslatorPlugin
 
     if (!$this->isAvailable($translator)) {
       $result['can translate'] = FALSE;
-      $result['reason'] = t('The translator is currently unavailable. Check the configuration');
+      $result['reason'] = t('The translator is currently unavailable. Check the'
+                            . ' configuration');
       return $result;
     }
 
     $local_source_language = $job->source_language;
-    $source_language = $this->mapToRemoteLanguage($translator, $local_source_language);
+    $source_language = $this->mapToRemoteLanguage($translator,
+                                                  $local_source_language);
 
-    // Zanata can only translate from en-US at the moment. Using any en locale as a good approximation.
+    // Zanata can only translate from en-US at the moment.
+    // Using any en locale as a good approximation.
     $from_english = substr($source_language, 0, 2) === 'en';
     if (!$from_english) {
       $result['can translate'] = FALSE;
-      $result['reason'] = t("\"{$local_source_language}\" is not a valid source language. Zanata currently only handles source strings in English locales.");
+      $result['reason'] = t("\"{$local_source_language}\" is not a valid source"
+                            . " language. Zanata currently only handles source"
+                            . " strings in English locales.");
       return $result;
     }
 
     $supported_languages = $this->getSupportedRemoteLanguages($translator);
-    $target_language = $this->mapToRemoteLanguage($translator, $job->target_language);
+    $target_language = $this->mapToRemoteLanguage($translator,
+                                                  $job->target_language);
     $supported_target = in_array($target_language, $supported_languages);
     if (!$supported_target) {
       $result['can translate'] = FALSE;
-      $result['reason'] = t("\"{$job->target_language}\" is not a supported target language for translation. Check language mappings.");
+      $result['reason'] = t("\"{$job->target_language}\" is not a supported"
+                            . " target language for translation. Check language"
+                            . " mappings.");
       return $result;
     }
 
