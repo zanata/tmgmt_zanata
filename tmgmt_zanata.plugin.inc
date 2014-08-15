@@ -115,8 +115,7 @@ class TMGMTZanataTranslatorPluginController extends TMGMTDefaultTranslatorPlugin
   );
 
   /**
-   * Implements
-   * TMGMTTranslatorPluginControllerInterface::getDefaultRemoteLanguagesMappings().
+   * Implements TMGMTTranslatorPluginControllerInterface::getDefaultRemoteLanguagesMappings().
    *
    * @return array
    *   default mappings for local to remote language codes.
@@ -126,8 +125,7 @@ class TMGMTZanataTranslatorPluginController extends TMGMTDefaultTranslatorPlugin
   }
 
   /**
-   * Implements
-   * TMGMTTranslatorPluginControllerInterface::getSupportedRemoteLanguages().
+   * Implements TMGMTTranslatorPluginControllerInterface::getSupportedRemoteLanguages().
    *
    * @return array
    *   all supported languages of the translator.
@@ -148,8 +146,7 @@ class TMGMTZanataTranslatorPluginController extends TMGMTDefaultTranslatorPlugin
   }
 
   /**
-   * Implements
-   * TMGMTTranslatorPluginControllerInterface::getNotAvailableReason().
+   * Implements TMGMTTranslatorPluginControllerInterface::getNotAvailableReason().
    */
   public function getNotAvailableReason(TMGMTTranslator $translator) {
     $items = array();
@@ -173,8 +170,7 @@ class TMGMTZanataTranslatorPluginController extends TMGMTDefaultTranslatorPlugin
   }
 
   /**
-   * Implements
-   * TMGMTTranslatorPluginControllerInterface::getSupportedTargetLanguages().
+   * Implements TMGMTTranslatorPluginControllerInterface::getSupportedTargetLanguages().
    */
   public function getSupportedTargetLanguages(TMGMTTranslator $translator, $source_language) {
     return array_keys($this->languageMappings);
@@ -189,8 +185,7 @@ class TMGMTZanataTranslatorPluginController extends TMGMTDefaultTranslatorPlugin
   }
 
   /**
-   * Implements
-   * TMGMTTranslatorPluginControllerInterface::getNotCanTranslateReason().
+   * Implements TMGMTTranslatorPluginControllerInterface::getNotCanTranslateReason().
    */
   public function getNotCanTranslateReason(TMGMTJob $job) {
     $translator = $job->getTranslator();
