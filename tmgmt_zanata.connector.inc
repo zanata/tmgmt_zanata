@@ -41,7 +41,8 @@ class TmgmtZanataConnector {
   /**
    * Generate a base URL for documents in a project/version.
    *
-   * @return the base REST URL for documents in the configured project/version
+   * @return string
+   *   the base REST URL for documents in the configured project/version
    */
   private function getBaseUrl() {
     return "{$this->serverUrl}/rest/projects/p/{$this->projectId}/"
@@ -51,7 +52,8 @@ class TmgmtZanataConnector {
   /**
    * Generate a document ID for a given job item.
    *
-   * @return the unencoded document id on Zanata for the given job item
+   * @return string
+   *   the unencoded document id on Zanata for the given job item
    */
   private function getDocId($job_item) {
     return "{$job_item->item_type}/{$job_item->item_id}";
@@ -60,7 +62,8 @@ class TmgmtZanataConnector {
   /**
    * Generate a REST URL for a given job item.
    *
-   * @return the REST URL for the given job item
+   * @return string
+   *   the REST URL for the given job item
    */
   private function getItemUrl(TMGMTJobItem $job_item) {
     $encoded_id = strtr($this->getDocId($job_item), '/', ',');
@@ -120,11 +123,10 @@ class TmgmtZanataConnector {
           break;
 
         case 401:
-          drupal_set_message(t('There was an authorization problem, please '
-                               . 'check your username and API key in the '
-                               . 'translator configuration.'),
-                             'warning',
-                             FALSE);
+          drupal_set_message(
+            t('There was an authorization problem, please check your username and API key in the translator configuration.'),
+            'warning',
+            FALSE);
           break;
 
         case 404:
@@ -133,15 +135,15 @@ class TmgmtZanataConnector {
           break;
 
         default:
-          drupal_set_message(t('There was a problem fetching translations from '
-                               . 'the service. See messages below.'),
-                             'warning',
-                             FALSE);
-          $job_item->addMessage(t('Tried to update translations but got response'
-                                  . ' code @code when fetching URL @url.'),
-                                array(
-                                  '@code' => $response->code,
-                                  '@url' => $url));
+          drupal_set_message(
+            t('There was a problem fetching translations from the service. See messages below.'),
+            'warning',
+            FALSE);
+          $job_item->addMessage(
+            t('Tried to update translations but got response  code @code when fetching URL @url.'),
+            array(
+              '@code' => $response->code,
+              '@url' => $url));
           break;
       }
     }
@@ -219,6 +221,9 @@ class TmgmtZanataConnector {
     );
   }
 
+  /**
+   * Request translation of all unsubmitted items in the job.
+   */
   public function requestTranslation($skip_submitted = TRUE) {
     $all_submissions_worked = TRUE;
     $base_options = $this->getBaseOptions();
@@ -227,9 +232,10 @@ class TmgmtZanataConnector {
     foreach ($this->job->getItems() as $job_item) {
       if ($skip_submitted) {
         $mapping = $this->getRemoteMapping($job_item);
-        if ($mapping) { // there is a mapping, only added when submitting
-          drupal_set_message(t('Skipped an item because it has already been '
-                               . 'submitted'));
+        if ($mapping) {
+          // There is a mapping, only added when submitting.
+          drupal_set_message(
+            t('Skipped an item because it has already been submitted'));
           continue;
         }
       }
@@ -239,14 +245,13 @@ class TmgmtZanataConnector {
     }
 
     if ($all_submissions_worked) {
-      $this->job->submitted(t('All items have been submitted to Zanata for '
-                              . 'translation.'));
+      $this->job->submitted(
+        t('All items have been submitted to Zanata for translation.'));
     }
     else {
       // TODO include count of failed items.
       $this->job->addMessage(
-        t('One or more items were not successfully sent to Zanata. '
-          . 'Try again after correcting the problem items.'),
+        t('One or more items were not successfully sent to Zanata. Try again after correcting the problem items.'),
         array(), 'error');
     }
   }
@@ -254,7 +259,7 @@ class TmgmtZanataConnector {
   /**
    * Request translation for a single item.
    *
-   * @return
+   * @return bool
    *   TRUE if the source was submitted successfully, FALSE otherwise
    */
   private function requestItemTranslation(TMGMTJobItem $job_item, $base_options) {
