@@ -78,7 +78,7 @@ class TMGMTZanataTranslatorUIController extends TMGMTDefaultTranslatorUIControll
    *         Information".
    */
   public function checkoutInfo(TMGMTJob $job) {
-    // TODO show last known translation statistics overall and per node
+    /* TODO show last known translation statistics overall and per node */
 
     $info['actions'] = array('#type' => 'actions');
     // TODO limit access of this button to only jobs that have been submitted to

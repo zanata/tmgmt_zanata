@@ -7,7 +7,7 @@
 /**
  * Handles operations relating to Zanata URLs and requests for a translation job.
  */
-class ZanataConnector {
+class TmgmtZanataConnector {
 
   private $server_url;
   private $project_id;
@@ -80,9 +80,10 @@ class ZanataConnector {
       $url = $this->getItemTranslationUrl($job_item);
       $options = $base_options;
 
-      // TODO consider skipping any item that is marked as completed, to avoid
-      //      excess network traffic. This would miss translations that have
-      //      been updated since the last check.
+      /* TODO consider skipping any item that is marked as completed, to avoid
+       *      excess network traffic. This would miss translations that have
+       *      been updated since the last check.
+       */
 
       $this->setEtagHeaderFromItem($options, $job_item);
 
@@ -243,7 +244,8 @@ class ZanataConnector {
    */
   private function requestItemTranslation(TMGMTJobItem $job_item, $base_options) {
     $url = $this->getItemUrl($job_item);
-    $options = $base_options; // makes a copy
+    // makes a copy
+    $options = $base_options;
 
     $common_data = array(
       'contentType' => 'text/plain', // required
@@ -256,7 +258,7 @@ class ZanataConnector {
 
     $options['data'] = json_encode($data);
 
-    // TODO consider copytrans
+    /* TODO consider copytrans */
 
     $response = drupal_http_request($url, $options);
 

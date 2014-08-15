@@ -258,10 +258,10 @@ class TMGMTZanataTranslatorPluginController extends TMGMTDefaultTranslatorPlugin
   }
 
   /**
-   * @return a new ZanataConnector for the given job.
+   * @return a new TmgmtZanataConnector for the given job.
    */
   public function getConnector(TMGMTJob $job) {
-    return new ZanataConnector($job);
+    return new TmgmtZanataConnector($job);
   }
 
 }
