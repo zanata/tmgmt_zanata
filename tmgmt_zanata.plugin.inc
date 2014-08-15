@@ -115,18 +115,22 @@ class TMGMTZanataTranslatorPluginController extends TMGMTDefaultTranslatorPlugin
   );
 
   /**
-   * Implements TMGMTTranslatorPluginControllerInterface::getDefaultRemoteLanguagesMappings().
+   * Implements
+   * TMGMTTranslatorPluginControllerInterface::getDefaultRemoteLanguagesMappings().
    *
-   * @return default mappings for local to remote language codes.
+   * @return array
+   *   default mappings for local to remote language codes.
    */
   public function getDefaultRemoteLanguagesMappings() {
     return $this->languageMappings;
   }
 
   /**
-   * Implements TMGMTTranslatorPluginControllerInterface::getSupportedRemoteLanguages().
+   * Implements
+   * TMGMTTranslatorPluginControllerInterface::getSupportedRemoteLanguages().
    *
-   * @return all supported languages of the translator.
+   * @return array
+   *   all supported languages of the translator.
    */
   public function getSupportedRemoteLanguages(TMGMTTranslator $translator) {
     return array_values($this->languageMappings);
@@ -144,7 +148,8 @@ class TMGMTZanataTranslatorPluginController extends TMGMTDefaultTranslatorPlugin
   }
 
   /**
-   * Implements TMGMTTranslatorPluginControllerInterface::getNotAvailableReason().
+   * Implements
+   * TMGMTTranslatorPluginControllerInterface::getNotAvailableReason().
    */
   public function getNotAvailableReason(TMGMTTranslator $translator) {
     $items = array();
@@ -163,12 +168,13 @@ class TMGMTZanataTranslatorPluginController extends TMGMTDefaultTranslatorPlugin
     if (!$translator->getSetting('api_key')) {
       $items[] = 'API key';
     }
-    $items_string = implode(", ", $items);
-    return t("Configuration value needed for {$items_string}.");
+    return t('Configuration value needed for @items.',
+             array('@items' => implode(", ", $items)));
   }
 
   /**
-   * Implements TMGMTTranslatorPluginControllerInterface::getSupportedTargetLanguages().
+   * Implements
+   * TMGMTTranslatorPluginControllerInterface::getSupportedTargetLanguages().
    */
   public function getSupportedTargetLanguages(TMGMTTranslator $translator, $source_language) {
     return array_keys($this->languageMappings);
@@ -183,7 +189,8 @@ class TMGMTZanataTranslatorPluginController extends TMGMTDefaultTranslatorPlugin
   }
 
   /**
-   * Implements TMGMTTranslatorPluginControllerInterface::getNotCanTranslateReason().
+   * Implements
+   * TMGMTTranslatorPluginControllerInterface::getNotCanTranslateReason().
    */
   public function getNotCanTranslateReason(TMGMTJob $job) {
     $translator = $job->getTranslator();
@@ -196,17 +203,20 @@ class TMGMTZanataTranslatorPluginController extends TMGMTDefaultTranslatorPlugin
   }
 
   /**
-   * @return an associative array with 'can translate' indicating whether translation
-   *         is possible, and 'reason' containing a localised string with the reason
-   *         that translation is not possible.
+   * Check whether translation is possible, and why or why not.
+   *
+   * @return array
+   *   an associative array with 'can translate' indicating whether translation
+   *   is possible, and 'reason' containing a localised string with the reason
+   *   that translation is not possible.
    */
   private function canTranslateWithReason(TMGMTTranslator $translator, TMGMTJob $job) {
     $result = array();
 
     if (!$this->isAvailable($translator)) {
       $result['can translate'] = FALSE;
-      $result['reason'] = t('The translator is currently unavailable. Check the'
-                            . ' configuration');
+      $result['reason'] = t(
+        'The translator is currently unavailable. Check the configuration');
       return $result;
     }
 
@@ -219,9 +229,9 @@ class TMGMTZanataTranslatorPluginController extends TMGMTDefaultTranslatorPlugin
     $from_english = substr($source_language, 0, 2) === 'en';
     if (!$from_english) {
       $result['can translate'] = FALSE;
-      $result['reason'] = t("\"{$local_source_language}\" is not a valid source"
-                            . " language. Zanata currently only handles source"
-                            . " strings in English locales.");
+      $result['reason'] = t(
+        '"@locale" is not a valid source language. Zanata currently only handles source strings in English locales.',
+        array('@locale' => $local_source_language));
       return $result;
     }
 
@@ -231,9 +241,9 @@ class TMGMTZanataTranslatorPluginController extends TMGMTDefaultTranslatorPlugin
     $supported_target = in_array($target_language, $supported_languages);
     if (!$supported_target) {
       $result['can translate'] = FALSE;
-      $result['reason'] = t("\"{$job->target_language}\" is not a supported"
-                            . " target language for translation. Check language"
-                            . " mappings.");
+      $result['reason'] = t(
+        '"@locale" is not a supported target language for translation. Check language mappings.',
+        array('@locale' => $job->target_language));
       return $result;
     }
 
@@ -243,8 +253,10 @@ class TMGMTZanataTranslatorPluginController extends TMGMTDefaultTranslatorPlugin
   }
 
   /**
-   * Similar to requestTranslation(), but will always submit all items, even if
-   * they have already been submitted to the Zanata server.
+   * Similar to requestTranslation(), but will always submit all items.
+   *
+   * Items are submitted even if they have already been submitted to the Zanata
+   * server.
    */
   public function resubmitTranslation(TMGMTJob $job) {
     $this->requestTranslation($job, FALSE);
@@ -258,7 +270,10 @@ class TMGMTZanataTranslatorPluginController extends TMGMTDefaultTranslatorPlugin
   }
 
   /**
-   * @return a new TmgmtZanataConnector for the given job.
+   * Create a connector for a job.
+   *
+   * @return TmgmtZanataConnector
+   *   a new connector for the given job.
    */
   public function getConnector(TMGMTJob $job) {
     return new TmgmtZanataConnector($job);
