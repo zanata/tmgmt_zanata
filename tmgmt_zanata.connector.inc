@@ -254,18 +254,23 @@ class TmgmtZanataConnector {
   /**
    * Request translation for a single item.
    *
-   * @return TRUE if the source was submitted successfully, FALSE otherwise
+   * @return
+   *   TRUE if the source was submitted successfully, FALSE otherwise
    */
   private function requestItemTranslation(TMGMTJobItem $job_item, $base_options) {
     $url = $this->getItemUrl($job_item);
-    // makes a copy
+    // Makes a copy.
     $options = $base_options;
 
     $common_data = array(
-      'contentType' => 'text/plain', // required
-      'lang' => 'en-US', // required
-      'type' => 'FILE', // required. Must be FILE, DOCUMENT or PAGE
-      // 'extensions' => array(), // TODO look at using this for source comments
+      // Required.
+      'contentType' => 'text/plain',
+      // Required.
+      'lang' => 'en-US',
+      // Required. Must be FILE, DOCUMENT or PAGE.
+      'type' => 'FILE',
+      // TODO look at using extensions for source comments.
+      // 'extensions' => array(),
     );
     $data = $common_data;
     $data['textFlows'] = $this->prepareStrings($job_item);
@@ -287,22 +292,18 @@ class TmgmtZanataConnector {
             '@doc_id' => $doc_id,
           )
         );
-        // add doc_id as remote_identifier_1, full URL as remote_url
+        // Add doc_id as remote_identifier_1, full URL as remote_url.
         $job_item->addRemoteMapping(NULL, $doc_id, array(
           'remote_url' => $url,
         ));
         return TRUE;
-        break;
 
       case 401:
-          drupal_set_message(t('There was an authorization problem, please '
-                               . 'check your username and API key in the '
-                               . 'translator configuration.'),
+        drupal_set_message(t('There was an authorization problem, please check your username and API key in the translator configuration.'),
                              'error',
                              FALSE);
         $job_item->addMessage(
-          t('Item "@title" was not successfully sent to Zanata due to an '
-            . 'authorization error.'),
+          t('Item "@title" was not successfully sent to Zanata due to an authorization error.'),
           array(
             '@title' => $job_item->defaultLabel(),
             '@code' => $response->code,
