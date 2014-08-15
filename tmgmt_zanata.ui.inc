@@ -2,11 +2,11 @@
 
 /**
  * @file
- * Provides Zanata translation plugin UI
+ * Provides Zanata translation plugin UI.
  */
 
 /**
- * Zanata translation plugin UI
+ * Zanata translation plugin UI.
  */
 class TMGMTZanataTranslatorUIController extends TMGMTDefaultTranslatorUIController {
 
@@ -21,11 +21,11 @@ class TMGMTZanataTranslatorUIController extends TMGMTDefaultTranslatorUIControll
    */
   public function pluginSettingsForm($form, &$form_state, TMGMTTranslator $translator, $busy = FALSE) {
     $form['server'] = array(
-      '#type' => 'textfield', // TODO check whether there is a specific type for URLs
+      // TODO check whether there is a specific type for URLs.
+      '#type' => 'textfield',
       '#title' => t('Zanata server URL'),
-      '#description' => t('Base URL for the Zanata server. This should not '
-                          . 'include a / at the end, for example, '
-                          . 'http://translate.zanata.org'),
+      '#description' => t(
+        'Base URL for the Zanata server. This should not include a / at the end, for example, http://translate.zanata.org'),
       '#size' => 120,
       '#required' => TRUE,
       '#default_value' => $translator->getSetting('server'),
@@ -41,8 +41,8 @@ class TMGMTZanataTranslatorUIController extends TMGMTDefaultTranslatorUIControll
     $form['api_key'] = array(
       '#type' => 'textfield',
       '#title' => t('API key'),
-      '#description' => t('Your API key on Zanata, found in the "Client" '
-                          . 'section of your user settings (via the dashboard).'),
+      '#description' => t(
+        'Your API key on Zanata, found in the "Client" section of your user settings (via the dashboard).'),
       '#size' => 32,
       '#maxlength' => 32,
       '#default_value' => $translator->getSetting('api_key'),
@@ -50,8 +50,8 @@ class TMGMTZanataTranslatorUIController extends TMGMTDefaultTranslatorUIControll
     $form['project'] = array(
       '#type' => 'textfield',
       '#title' => t('Project ID'),
-      '#description' => t('Project ID on Zanata. This should match a project '
-                          . 'that exists on Zanata.'),
+      '#description' => t(
+        'Project ID on Zanata. This should match a project that exists on Zanata.'),
       '#size' => 40,
       '#maxlength' => 40,
       '#default_value' => $translator->getSetting('project'),
@@ -59,8 +59,8 @@ class TMGMTZanataTranslatorUIController extends TMGMTDefaultTranslatorUIControll
     $form['version'] = array(
       '#type' => 'textfield',
       '#title' => t('Version ID'),
-      '#description' => t('Version ID on Zanata. This should match a version '
-                          . 'that exists in the given project.'),
+      '#description' => t(
+        'Version ID on Zanata. This should match a version that exists in the given project.'),
       '#size' => 40,
       '#maxlength' => 40,
       '#default_value' => $translator->getSetting('version'),
@@ -71,7 +71,7 @@ class TMGMTZanataTranslatorUIController extends TMGMTDefaultTranslatorUIControll
 
 
   /**
-   * Implements TMGMTTranslatorUIControllerInterface::checkoutInfo();
+   * Implements TMGMTTranslatorUIControllerInterface::checkoutInfo().
    *
    * @return an associative array of UI items to display on the management page
    *         for the given translation job, under the heading "Translation
@@ -82,8 +82,8 @@ class TMGMTZanataTranslatorUIController extends TMGMTDefaultTranslatorUIControll
 
     $info['actions'] = array('#type' => 'actions');
     // TODO limit access of this button to only jobs that have been submitted to
-    //      Zanata. Use '#access' key on the button, with an appropriate check
-    //      on the job such as $job->isSubmitted() if that exists
+    // Zanata. Use '#access' key on the button, with an appropriate check
+    // on the job such as $job->isSubmitted() if that exists.
     $info['actions']['poll'] = array(
       '#type' => 'submit',
       '#value' => t('Update translation info'),
