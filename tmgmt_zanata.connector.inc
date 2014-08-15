@@ -308,22 +308,21 @@ class TmgmtZanataConnector {
             '@code' => $response->code,
           ), 'error');
         return FALSE;
-        break;
 
       default:
         $job_item->addMessage(
-          t('Item "@title" was not successfully sent to Zanata. Status code:'
-            . ' @code.'),
+          t('Item "@title" was not successfully sent to Zanata. Status code: @code.'),
           array(
             '@title' => $job_item->defaultLabel(),
             '@code' => $response->code,
           ), 'error');
         return FALSE;
-        break;
     }
   }
 
   /**
+   * Prepare strings for encoding as JSON.
+   *
    * @return an array of text flow arrays ready to encode as JSON and send to
    *         Zanata server
    */
@@ -342,12 +341,13 @@ class TmgmtZanataConnector {
     foreach ($data as $key => $value) {
       $items[] = array(
         'id' => $key,
-        'lang' => 'en-US', // Zanata can only handle source as en-US locale
+        // Zanata can only handle source as en-US locale.
+        'lang' => 'en-US',
         'content' => $value['#text'],
         'contents' => NULL,
         'plural' => FALSE,
         'extensions' => array(),
-        'revision' => 1
+        'revision' => 1,
       );
     }
 
