@@ -4,7 +4,7 @@
  * @file
  * Module file for translation management Zanata module.
  *
- * http://zanata.org/
+ * For information on Zanata, see http://zanata.org/
  *
  * Implemented by David Mason damason@redhat.com
  */
@@ -19,18 +19,20 @@ function tmgmt_zanata_tmgmt_translator_plugin_info() {
       'description' => t('Service to translate strings with Zanata'),
       'plugin controller class' => 'TMGMTZanataTranslatorPluginController',
       'ui controller class' => 'TMGMTZanataTranslatorUIController',
-      'auto create' => TRUE, // FIXME make sure auto create works properly
+      // FIXME make sure auto create works properly.
+      'auto create' => TRUE,
       'default settings' => array(
         'server' => 'http://translate.zanata.org',
       ),
-      // TODO look at other settings on the hook page
+      // TODO look at other settings on the hook page.
     ),
   );
 }
 
 /**
- * Callback used to force re-sending of all items in a job from the UI
- * checkoutInfo form.
+ * Callback used to force re-sending of all items in a job.
+ *
+ * This is triggered from the UI checkoutInfo form.
  */
 function tmgmt_zanata_resubmit_translations($form, &$form_state) {
   $job = $form_state['tmgmt_job'];

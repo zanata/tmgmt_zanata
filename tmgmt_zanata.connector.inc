@@ -1,36 +1,37 @@
 <?php
 /**
  * @file
- * Connector to Zanata server
+ * Connector to Zanata server.
  */
 
 /**
- * Handles operations relating to Zanata URLs and requests for a translation job.
+ * Handles operations relating to Zanata URLs and translation job requests.
  */
 class TmgmtZanataConnector {
 
-  private $server_url;
-  private $project_id;
-  private $version_id;
+  private $serverUrl;
+  private $projectId;
+  private $versionId;
   private $username;
-  private $api_key;
+  private $apiKey;
 
   private $job;
   private $translator;
   private $controller;
 
   /**
-   * Create a new connector for the given job. A separate connector should be
-   * used for each job.
+   * Create a new connector for the given job.
+   *
+   * A separate connector should be used for each job.
    */
-  function __construct(TMGMTJob $job) {
+  protected function __construct(TMGMTJob $job) {
     $translator = $job->getTranslator();
 
-    $this->server_url = $translator->getSetting('server');
-    $this->project_id = $translator->getSetting('project');
-    $this->version_id = $translator->getSetting('version');
+    $this->serverUrl = $translator->getSetting('server');
+    $this->projectId = $translator->getSetting('project');
+    $this->versionId = $translator->getSetting('version');
     $this->username = $translator->getSetting('username');
-    $this->api_key = $translator->getSetting('api_key');
+    $this->apiKey = $translator->getSetting('api_key');
 
     $this->job = $job;
     $this->translator = $translator;
@@ -38,29 +39,37 @@ class TmgmtZanataConnector {
   }
 
   /**
+   * Generate a base URL for documents in a project/version.
+   *
    * @return the base REST URL for documents in the configured project/version
    */
-  public function getBaseUrl() {
-    return "{$this->server_url}/rest/projects/p/{$this->project_id}/"
-           . "iterations/i/{$this->version_id}/r";
+  private function getBaseUrl() {
+    return "{$this->serverUrl}/rest/projects/p/{$this->projectId}/"
+           . "iterations/i/{$this->versionId}/r";
   }
 
   /**
+   * Generate a document ID for a given job item.
+   *
    * @return the unencoded document id on Zanata for the given job item
    */
-  function getDocId($job_item) {
+  private function getDocId($job_item) {
     return "{$job_item->item_type}/{$job_item->item_id}";
   }
 
   /**
+   * Generate a REST URL for a given job item.
+   *
    * @return the REST URL for the given job item
    */
-  function getItemUrl(TMGMTJobItem $job_item) {
+  private function getItemUrl(TMGMTJobItem $job_item) {
     $encoded_id = strtr($this->getDocId($job_item), '/', ',');
     return "{$this->getBaseUrl()}/{$encoded_id}";
   }
 
   /**
+   * Generate a REST URL for translations of the given job item.
+   *
    * @return the REST URL for the translations of the given job item for the
    *         given locale.
    */
@@ -75,16 +84,14 @@ class TmgmtZanataConnector {
     $job = $this->job;
     $base_options = $this->getBaseOptions();
 
-
     foreach ($job->getItems() as $job_item) {
       $url = $this->getItemTranslationUrl($job_item);
       $options = $base_options;
 
       /* TODO consider skipping any item that is marked as completed, to avoid
-       *      excess network traffic. This would miss translations that have
-       *      been updated since the last check.
+       * excess network traffic. This would miss translations that have been
+       * updated since the last check.
        */
-
       $this->setEtagHeaderFromItem($options, $job_item);
 
       $response = drupal_http_request($url, $options);
@@ -96,7 +103,7 @@ class TmgmtZanataConnector {
 
           $translated = array();
           foreach ($targets as $target) {
-            // TODO map Zanata states sensibly to TMGMT states
+            // TODO map Zanata states sensibly to TMGMT states.
             if ($target['state'] == 'Approved') {
               $key = (string) $target['resId'];
               $translated[$key]['#text'] = (string) $target['content'];
@@ -107,7 +114,8 @@ class TmgmtZanataConnector {
           $this->saveResponseEtagForItem($response, $job_item);
           break;
 
-        case 304: // not modified (i.e. etag matches)
+        case 304:
+          // Not modified (i.e. etag matches).
           $job_item->addMessage(t('No new translations are available yet.'));
           break;
 
@@ -120,7 +128,7 @@ class TmgmtZanataConnector {
           break;
 
         case 404:
-          // this may not be worth logging, is could just be considered noise
+          // This may not be worth logging, is could just be considered noise.
           $job_item->addMessage(t('No translations are available yet.'));
           break;
 
@@ -140,8 +148,10 @@ class TmgmtZanataConnector {
   }
 
   /**
-   * Store the etag from the response (if present) as remote mapping data in the
-   * given translation job item.
+   * Store the etag from a response.
+   *
+   * Stores the etag from the response (if present) as remote mapping data in
+   * the given translation job item.
    */
   private function saveResponseEtagForItem($response, TMGMTJobItem $job_item) {
     if (isset($response->headers['etag'])) {
@@ -155,8 +165,10 @@ class TmgmtZanataConnector {
   }
 
   /**
-   * Extract the stored etag (if present) from the remote mapping data of the
-   * given translation job item, and set it as the appropriate header in the
+   * Set a request etag header to the stored etag value.
+   *
+   * Extracts the stored etag (if present) from the remote mapping data of the
+   * given translation job item, and sets it as the appropriate header in the
    * given request options.
    */
   private function setEtagHeaderFromItem(&$request_options, $job_item) {
@@ -176,7 +188,7 @@ class TmgmtZanataConnector {
    * always return that mapping, if present.
    */
   private function getRemoteMapping(TMGMTJobItem $job_item) {
-    // only ever expecting a single mapping
+    // Only ever expecting a single mapping.
     // reset resets internal array pointer to the first element and returns it.
     return reset($job_item->getRemoteMappings());
   }
@@ -191,6 +203,8 @@ class TmgmtZanataConnector {
   }
 
   /**
+   * Generate some common options for a HTTP request.
+   *
    * @return options for a HTTP request that include authorization information
    *         and content type headers.
    */
@@ -198,7 +212,7 @@ class TmgmtZanataConnector {
     return array(
       'headers' => array(
         'X-Auth-User' => $this->username,
-        'X-Auth-Token' => $this->api_key,
+        'X-Auth-Token' => $this->apiKey,
         'Content-Type' => 'application/json',
         'Accept' => 'application/json',
       ),
@@ -229,7 +243,7 @@ class TmgmtZanataConnector {
                               . 'translation.'));
     }
     else {
-      // TODO include count of failed items
+      // TODO include count of failed items.
       $this->job->addMessage(
         t('One or more items were not successfully sent to Zanata. '
           . 'Try again after correcting the problem items.'),
