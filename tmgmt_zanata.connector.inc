@@ -24,7 +24,7 @@ class TmgmtZanataConnector {
    *
    * A separate connector should be used for each job.
    */
-  protected function __construct(TMGMTJob $job) {
+  public function __construct(TMGMTJob $job) {
     $translator = $job->getTranslator();
 
     $this->serverUrl = $translator->getSetting('server');
