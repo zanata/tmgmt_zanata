@@ -192,7 +192,8 @@ class TmgmtZanataConnector {
   private function getRemoteMapping(TMGMTJobItem $job_item) {
     // Only ever expecting a single mapping.
     // reset resets internal array pointer to the first element and returns it.
-    return reset($job_item->getRemoteMappings());
+    $remote_mappings = $job_item->getRemoteMappings();
+    return reset($remote_mappings);
   }
 
 
