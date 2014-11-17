@@ -22,7 +22,7 @@ function tmgmt_zanata_tmgmt_translator_plugin_info() {
       // FIXME make sure auto create works properly.
       'auto create' => TRUE,
       'default settings' => array(
-        'server' => 'http://translate.zanata.org',
+        'server' => 'http://translate.zanata.org/zanata',
       ),
       // TODO look at other settings on the hook page.
     ),
