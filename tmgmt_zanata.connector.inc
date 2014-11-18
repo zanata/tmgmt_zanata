@@ -9,6 +9,13 @@
  */
 class TmgmtZanataConnector {
 
+  // const SEGMENT_PREFIX = '-segment-';
+
+  // FIXME make this a config option
+  const USE_SEGMENTATION = true;
+
+  private $segmenter;
+
   private $serverUrl;
   private $projectId;
   private $versionId;
@@ -25,6 +32,8 @@ class TmgmtZanataConnector {
    * A separate connector should be used for each job.
    */
   public function __construct(TMGMTJob $job) {
+    $this->segmenter = new TmgmtZanataSegmenter();
+
     $translator = $job->getTranslator();
 
     $this->serverUrl = $translator->getSetting('server');
@@ -84,6 +93,8 @@ class TmgmtZanataConnector {
    * Check for and download available translations from Zanata server.
    */
   public function pollTranslations() {
+
+
     $job = $this->job;
     $base_options = $this->getBaseOptions();
 
@@ -97,24 +108,29 @@ class TmgmtZanataConnector {
        */
       $this->setEtagHeaderFromItem($options, $job_item);
 
+
       $response = drupal_http_request($url, $options);
 
       switch ($response->code) {
         case 200:
           $data = drupal_json_decode($response->data);
+
           $targets = $data['textFlowTargets'];
 
-          $translated = array();
-          foreach ($targets as $target) {
-            // TODO map Zanata states sensibly to TMGMT states.
-            if ($target['state'] == 'Approved') {
-              $key = (string) $target['resId'];
-              $translated[$key]['#text'] = (string) $target['content'];
-            }
+          if ($this::USE_SEGMENTATION) {
+            $translated = $this->segmenter->processSegmentedTranslations($job_item, $targets);
           }
+          else {
+            $translated = $this->processUnsegmentedTranslations($targets);
+          }
+
+
           $expanded_translated = tmgmt_unflatten_data($translated);
           $job_item->addTranslatedData($expanded_translated);
           $this->saveResponseEtagForItem($response, $job_item);
+
+
+
           break;
 
         case 304:
@@ -147,6 +163,26 @@ class TmgmtZanataConnector {
           break;
       }
     }
+  }
+
+
+  /**
+   * Process translations that do not use segmentation.
+   * returns $translated (data that is ready to be unflattened).
+   */
+  private function processUnsegmentedTranslations($targets) {
+    $translated = array();
+
+    foreach ($targets as $target) {
+      // TODO map Zanata states sensibly to TMGMT states.
+      // FIXME do I need translated and reviewed?
+      if ($target['state'] == 'Approved') {
+        $key = (string) $target['resId'];
+        $translated[$key]['#text'] = (string) $target['content'];
+      }
+    }
+
+    return $translated;
   }
 
   /**
@@ -279,6 +315,7 @@ class TmgmtZanataConnector {
       // 'extensions' => array(),
     );
     $data = $common_data;
+
     $data['textFlows'] = $this->prepareStrings($job_item);
 
     $options['data'] = json_encode($data);
@@ -334,7 +371,6 @@ class TmgmtZanataConnector {
    *         Zanata server
    */
   protected function prepareStrings(TMGMTJobItem $job_item) {
-    $data = $job_item->getData();
     $data = array_filter(tmgmt_flatten_data($job_item->getData()),
                          '_tmgmt_filter_data');
 
@@ -344,20 +380,34 @@ class TmgmtZanataConnector {
       $data = array('node_title' => $data['node_title']) + $data;
     }
 
+    if ($this::USE_SEGMENTATION) {
+      $data = $this->segmenter->segmentText($data);
+    }
+
     $items = array();
     foreach ($data as $key => $value) {
-      $items[] = array(
-        'id' => $key,
-        // Zanata can only handle source as en-US locale.
-        'lang' => 'en-US',
-        'content' => $value['#text'],
-        'contents' => NULL,
-        'plural' => FALSE,
-        'extensions' => array(),
-        'revision' => 1,
-      );
+      $text = $value['#text'];
+      $items[] = $this->createItem($key, $text);
     }
 
     return $items;
   }
+
+  /**
+   * Create an associative array for a translation item ready for JSON
+   * encoding. The format is suitable for the Zanata server.
+   */
+  private function createItem($id, $text) {
+    return array(
+      'id' => $id,
+      // Zanata can only handle source as en-US locale.
+      'lang' => 'en-US',
+      'content' => $text,
+      'contents' => NULL,
+      'plural' => FALSE,
+      'extensions' => array(),
+      'revision' => 1,
+    );
+  }
+
 }
