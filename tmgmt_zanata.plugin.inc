@@ -115,7 +115,7 @@ class TMGMTZanataTranslatorPluginController extends TMGMTDefaultTranslatorPlugin
   );
 
   /**
-   * Implements TMGMTTranslatorPluginControllerInterface::getDefaultRemoteLanguagesMappings().
+   * Specifies default mappings for local to remote language codes.
    *
    * @return array
    *   default mappings for local to remote language codes.
@@ -125,7 +125,7 @@ class TMGMTZanataTranslatorPluginController extends TMGMTDefaultTranslatorPlugin
   }
 
   /**
-   * Implements TMGMTTranslatorPluginControllerInterface::getSupportedRemoteLanguages().
+   * Gets all languages supported by Zanata.
    *
    * @return array
    *   all supported languages of the translator.
@@ -135,7 +135,9 @@ class TMGMTZanataTranslatorPluginController extends TMGMTDefaultTranslatorPlugin
   }
 
   /**
-   * Implements TMGMTTranslatorPluginControllerInterface::isAvailable().
+   * Indicates whether the translator is available.
+   *
+   * The translator is considered available if it is fully configured.
    */
   public function isAvailable(TMGMTTranslator $translator) {
     return $translator->getSetting('server')
@@ -146,7 +148,7 @@ class TMGMTZanataTranslatorPluginController extends TMGMTDefaultTranslatorPlugin
   }
 
   /**
-   * Implements TMGMTTranslatorPluginControllerInterface::getNotAvailableReason().
+   * Return a message about which configuration items are not set.
    */
   public function getNotAvailableReason(TMGMTTranslator $translator) {
     $items = array();
@@ -170,14 +172,16 @@ class TMGMTZanataTranslatorPluginController extends TMGMTDefaultTranslatorPlugin
   }
 
   /**
-   * Implements TMGMTTranslatorPluginControllerInterface::getSupportedTargetLanguages().
+   * Return all available target languages.
+   *
+   * The list is the same for any source language.
    */
   public function getSupportedTargetLanguages(TMGMTTranslator $translator, $source_language) {
     return array_keys($this->languageMappings);
   }
 
   /**
-   * Implements TMGMTTranslatorPluginControllerInterface::canTranslate().
+   * Indicates whether a specified job can be translated.
    */
   public function canTranslate(TMGMTTranslator $translator, TMGMTJob $job) {
     $result = $this->canTranslateWithReason($translator, $job);
@@ -185,7 +189,9 @@ class TMGMTZanataTranslatorPluginController extends TMGMTDefaultTranslatorPlugin
   }
 
   /**
-   * Implements TMGMTTranslatorPluginControllerInterface::getNotCanTranslateReason().
+   * Indicates why a job cannot be translated.
+   *
+   * If the job can be translated, this will return empty string.
    */
   public function getNotCanTranslateReason(TMGMTJob $job) {
     $translator = $job->getTranslator();
@@ -258,7 +264,11 @@ class TMGMTZanataTranslatorPluginController extends TMGMTDefaultTranslatorPlugin
   }
 
   /**
-   * Implements TMGMTTranslatorPluginControllerInterface::requestTranslation().
+   * Send strings to Zanata for translation.
+   *
+   * By default, only strings that have not been successfully submitted will be
+   * sent. Submission is an idempotent operation so it is safe to resubmit
+   * strings, it just wastes time and bandwidth.
    */
   public function requestTranslation(TMGMTJob $job, $skip_submitted = TRUE) {
     $this->getConnector($job)->requestTranslation($skip_submitted);

@@ -71,7 +71,7 @@ class TMGMTZanataTranslatorUIController extends TMGMTDefaultTranslatorUIControll
 
 
   /**
-   * Implements TMGMTTranslatorUIControllerInterface::checkoutInfo().
+   * Specifies interface to poll translations and resubmit source text.
    *
    * @return an associative array of UI items to display on the management page
    *         for the given translation job, under the heading "Translation
