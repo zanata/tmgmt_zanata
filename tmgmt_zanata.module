@@ -23,6 +23,7 @@ function tmgmt_zanata_tmgmt_translator_plugin_info() {
       'auto create' => TRUE,
       'default settings' => array(
         'server' => 'http://translate.zanata.org/zanata',
+        'segmentation' => 'NONE'
       ),
       // TODO look at other settings on the hook page.
     ),

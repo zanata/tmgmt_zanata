@@ -65,6 +65,19 @@ class TMGMTZanataTranslatorUIController extends TMGMTDefaultTranslatorUIControll
       '#maxlength' => 40,
       '#default_value' => $translator->getSetting('version'),
     );
+    $form['segmentation'] = array(
+      '#type' => 'select',
+      '#title' => t('Segmentation'),
+      '#description' => t(
+        'Should text be split into sentences or paragraphs before it is sent for translation? Note each translation will only download when all of its segments are translated.'),
+      '#required' => TRUE,
+      '#options' => array(
+        'NONE' => t('Do not segment.'),
+        'PARAGRAPHS' => t('Segment by paragrahps.'),
+        'SENTENCES' => t('Segment by sentences.')
+      ),
+      '#default_value' => $translator->getSetting('segmentation')
+    );
 
     return parent::pluginSettingsForm($form, $form_state, $translator, $busy);
   }

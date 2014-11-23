@@ -11,8 +11,7 @@ class TmgmtZanataConnector {
 
   // const SEGMENT_PREFIX = '-segment-';
 
-  // FIXME make this a config option
-  const USE_SEGMENTATION = true;
+  private $useSegmentation;
 
   private $segmenter;
 
@@ -32,7 +31,6 @@ class TmgmtZanataConnector {
    * A separate connector should be used for each job.
    */
   public function __construct(TMGMTJob $job) {
-    $this->segmenter = new TmgmtZanataSegmenter();
 
     $translator = $job->getTranslator();
 
@@ -41,6 +39,12 @@ class TmgmtZanataConnector {
     $this->versionId = $translator->getSetting('version');
     $this->username = $translator->getSetting('username');
     $this->apiKey = $translator->getSetting('api_key');
+
+    $segmentation = $translator->getSetting('segmentation');
+    $this->useSegmentation = $segmentation != 'NONE';
+    // TODO only create if $useSegmentation
+    $this->segmenter = new TmgmtZanataSegmenter($job);
+
 
     $this->job = $job;
     $this->translator = $translator;
@@ -117,7 +121,7 @@ class TmgmtZanataConnector {
 
           $targets = $data['textFlowTargets'];
 
-          if ($this::USE_SEGMENTATION) {
+          if ($this->useSegmentation) {
             $translated = $this->segmenter->processSegmentedTranslations($job_item, $targets);
           }
           else {
@@ -380,7 +384,7 @@ class TmgmtZanataConnector {
       $data = array('node_title' => $data['node_title']) + $data;
     }
 
-    if ($this::USE_SEGMENTATION) {
+    if ($this->useSegmentation) {
       $data = $this->segmenter->segmentText($data);
     }
 
