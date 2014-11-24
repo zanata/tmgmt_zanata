@@ -73,7 +73,7 @@ class TMGMTZanataTranslatorUIController extends TMGMTDefaultTranslatorUIControll
       '#required' => TRUE,
       '#options' => array(
         'NONE' => t('Do not segment.'),
-        'PARAGRAPHS' => t('Segment by paragrahps.'),
+        'PARAGRAPHS' => t('Segment by paragraphs.'),
         'SENTENCES' => t('Segment by sentences.')
       ),
       '#default_value' => $translator->getSetting('segmentation')

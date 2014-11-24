@@ -10,17 +10,37 @@
 class TmgmtZanataSegmenter {
   const SEGMENT_PREFIX = '-segment-';
 
-  private $segmentationType;
+  private $segmentRegex;
 
   /**
    * Create a new segmenter for general use.
    */
-  // FIXME could just pass in the segmentation type.
-  public function __construct(TMGMTJob $job) {
-    // FIXME may not even need this setting here, other module could just
-    //       use it to decide what functions to call.
-    $translator = $job->getTranslator();
-    $this->segmentationType = $translator->getSetting('segmentation');
+  public function __construct($segmentationType) {
+    // TODO match surrounding whitespace in both regex
+    switch ($segmentationType) {
+      case 'PARAGRAPHS':
+        $this->segmentRegex = "@(\r\n\r\n|\n\n|(?<=</p>)|<br>|<br/>|<br />)@";
+        break;
+      case 'SENTENCES':
+        // FIXME leading whitespace on first string is not handled by this.
+        //       could do trimming with segments later (move whitespace to
+        //       skeleton parts).
+        //       Like: /^(\s*)(.*?)(\s*)$/
+        //        and put 1 on pre_skeleton, 2 in text, 3 on post_skeleton
+        $this->segmentRegex = '/((?<=[.!?؟])\s+|(?<=。)\s*)/';
+        break;
+      case 'NONE':
+        // Regex purposely matches nothing so there will be a single segment.
+        $this->segmentRegex = '/$^/';
+        break;
+      default:
+        drupal_set_message(
+          t('Segmentation type setting "@segtype" is not valid.',
+            array ('@segtype' => $segmentationType)),
+         'error');
+        // FIXME use same as for NONE? This really is a fail error condirion,
+        //       better to just fail.
+    }
   }
 
   /**
@@ -106,60 +126,6 @@ class TmgmtZanataSegmenter {
   }
 
   /**
-   * Segment the text in a given value, and generate a new
-   * value for each segment.
-   * Returns an associative array with each segment associated
-   * with its unique segment key.
-   */
-  private function calculateSegments($parent_key, $value) {
-    switch ($this->segmentationType) {
-      case 'PARAGRAPHS':
-        return $this->calculateParagraphSegments($parent_key, $value);
-        break;
-      case 'SENTENCES':
-        return $this->calculateSentenceSegments($parent_key, $value);
-        break;
-      case 'NONE':
-        // return not segmented, just decorated like segments.
-        return $this->decorateWithoutSegmenting($parent_key, $value);
-        break;
-      default:
-        drupal_set_message(
-          t('Segmentation type setting "@segtype" is not valid.',
-            array ('@segtype' => $this->segmentationType)),
-         'error');
-        return $this->decorateWithoutSegmenting($parent_key, $value);
-    }
-  }
-
-  /**
-   * Split the text of a value into sentences. Each sentence forms a segment
-   * with an index position and a unique ID.
-   *
-   * Returns an associative array of segment key to segment value.
-   */
-  // FIXME: make this actually segment into sentences
-  private function calculateSentenceSegments($parent_key, $value) {
-    return $this->bisectSegments($parent_key, $value);
-  }
-
-  /**
-   * Converts a value to an array with a single segment by adding additional
-   * segment fields.
-   *
-   * Text is not changed in any way.
-   */
-  private function decorateWithoutSegmenting($parent_key, $value) {
-    $value['parent_key'] = $parent_key;
-    $value['pre_skeleton'] = '';
-    $value['post_skeleton'] = '';
-    $value['segment_index'] = 0;
-    $value['segment_count'] = 1;
-
-    return array($key => $value);
-  }
-
-  /**
    * This is a fake segmentation algorithm, useful for testing the control
    * flow regardless of actual segmentation. It just splits strings in half.
    */
@@ -199,12 +165,12 @@ class TmgmtZanataSegmenter {
   }
 
   /**
-   * Split the text of a value into paragraphs. Each paragraph forms a segment
-   * with an index position and a unique ID.
-   *
-   * Returns an associative array of segment key to segment value.
+   * Segment the text in a given value, and generate a new
+   * value for each segment.
+   * Returns an associative array with each segment associated
+   * with its unique segment key.
    */
-  private function calculateParagraphSegments($parent_key, $value) {
+  private function calculateSegments($parent_key, $value) {
     $segments = array();
 
     // $value will act as a template for each segment
@@ -213,16 +179,6 @@ class TmgmtZanataSegmenter {
 
     // Should short strings be segmented? Maybe not.
     //$text_length = strlen($text);
-
-    // TODO I can make this better by having a separator expand to include any
-    //    whitespace around it:
-    //     - 2 or more newlines should act the same, so 5 newlines would be
-    //       the same as 2.
-    //     - sentence boundaries should exclude whitespace between the ending
-    //       punctuation and the start of the next sentence, so the standard
-    //       space or two spaces after a period would not be included in either
-    //       sentence.
-
 
     $paragraphs_and_separators = $this->explodeParagraphs($text);
     // Note: paragraph is first, then separator, so for same index the paragraph
@@ -242,6 +198,7 @@ class TmgmtZanataSegmenter {
     foreach ($exploded_text as $index => $segment_text) {
       $is_last_segment = $index == ($segment_count - 1);
 
+      // there is no separator after the last segment
       if (array_key_exists($index, $separators)) {
         $post_separator = $separators[$index];
       }
@@ -250,9 +207,15 @@ class TmgmtZanataSegmenter {
       }
 
       if ($this->isSegmentValid($segment_text)) {
-        $new_segment = $this->createSegment($value, $next_segment_index,
-                                            $skeleton_buffer, $segment_text,
-                                            $post_separator);
+        // move whitespace from string to skeleton
+        // this could be done before iterating the segments
+        list($pre, $cleaned, $post) = $this->partitionWhitespace($segment_text);
+
+        $new_segment = $this->createSegment($value,
+                                            $next_segment_index,
+                                            $skeleton_buffer . $pre,
+                                            $cleaned,
+                                            $post . $post_separator);
         $segment_id = $this->segmentId($parent_key, $next_segment_index);
         $segments[$segment_id] = $new_segment;
         $next_segment_index++;
@@ -313,7 +276,9 @@ class TmgmtZanataSegmenter {
 
     // TODO make this a field of the segmenter, set it when constructed
     // based on segmentation type setting.
-    $pattern = "/(\r\n)/";
+    // $pattern = "/(\r\n)/";
+    // TODO just use the regex directly
+    $pattern = $this->segmentRegex;
     // use | to separate multiple flags
     $flags = PREG_SPLIT_DELIM_CAPTURE;
     $exploded = preg_split($pattern, $text, NULL, $flags);
@@ -357,6 +322,18 @@ class TmgmtZanataSegmenter {
     // return array_filter($paragraphs_and_separators, function ($index) {
     //   return ($index % 2) === 0;
     // }, ARRAY_FILTER_USE_KEY);
+  }
+
+  private function partitionWhitespace($text) {
+    $content = trim($text);
+    $content_with_post = ltrim($text);
+    $pre_length = strlen($text) - strlen($content_with_post);
+    $content_pos = $pre_length;
+    $post_pos = $content_pos + strlen($content);
+
+    $pre = substr($text, 0, $pre_length);
+    $post = substr($text, $post_pos);
+    return array($pre, $content, $post);
   }
 
   /**

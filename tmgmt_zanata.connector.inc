@@ -43,7 +43,7 @@ class TmgmtZanataConnector {
     $segmentation = $translator->getSetting('segmentation');
     $this->useSegmentation = $segmentation != 'NONE';
     // TODO only create if $useSegmentation
-    $this->segmenter = new TmgmtZanataSegmenter($job);
+    $this->segmenter = new TmgmtZanataSegmenter($segmentation);
 
 
     $this->job = $job;
