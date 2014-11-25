@@ -27,7 +27,13 @@ class TmgmtZanataSegmenter {
         //       skeleton parts).
         //       Like: /^(\s*)(.*?)(\s*)$/
         //        and put 1 on pre_skeleton, 2 in text, 3 on post_skeleton
-        $this->segmentRegex = '/((?<=[.!?؟])\s+|(?<=。)\s*)/';
+        $this->segmentRegex =
+          // non-ellipsis period before whitespace
+          '/((?<!\.\.)(?<=[.])\s+'
+          // punctuation at end of sentence before whitespace
+          . '|(?<=[!?؟])\s+'
+          // ideographic period regardless of whitespace
+          . '|(?<=。)\s*)/';
         break;
       case 'NONE':
         // Regex purposely matches nothing so there will be a single segment.
