@@ -9,6 +9,12 @@
  */
 class TmgmtZanataConnector {
 
+  // const SEGMENT_PREFIX = '-segment-';
+
+  private $useSegmentation;
+
+  private $segmenter;
+
   private $serverUrl;
   private $projectId;
   private $versionId;
@@ -25,6 +31,7 @@ class TmgmtZanataConnector {
    * A separate connector should be used for each job.
    */
   public function __construct(TMGMTJob $job) {
+
     $translator = $job->getTranslator();
 
     $this->serverUrl = $translator->getSetting('server');
@@ -32,6 +39,12 @@ class TmgmtZanataConnector {
     $this->versionId = $translator->getSetting('version');
     $this->username = $translator->getSetting('username');
     $this->apiKey = $translator->getSetting('api_key');
+
+    $segmentation = $translator->getSetting('segmentation');
+    $this->useSegmentation = $segmentation != 'NONE';
+    // TODO only create if $useSegmentation
+    $this->segmenter = new TmgmtZanataSegmenter($segmentation);
+
 
     $this->job = $job;
     $this->translator = $translator;
@@ -84,6 +97,8 @@ class TmgmtZanataConnector {
    * Check for and download available translations from Zanata server.
    */
   public function pollTranslations() {
+
+
     $job = $this->job;
     $base_options = $this->getBaseOptions();
 
@@ -97,6 +112,7 @@ class TmgmtZanataConnector {
        */
       $this->setEtagHeaderFromItem($options, $job_item);
 
+
       $response = drupal_http_request($url, $options);
 
       switch ($response->code) {
@@ -104,14 +120,13 @@ class TmgmtZanataConnector {
           $data = drupal_json_decode($response->data);
           $targets = $data['textFlowTargets'];
 
-          $translated = array();
-          foreach ($targets as $target) {
-            // TODO map Zanata states sensibly to TMGMT states.
-            if ($target['state'] == 'Approved') {
-              $key = (string) $target['resId'];
-              $translated[$key]['#text'] = (string) $target['content'];
-            }
+          if ($this->useSegmentation) {
+            $translated = $this->processTranslatedSegments($job_item, $targets);
           }
+          else {
+            $translated = $this->processUnsegmentedTranslations($targets);
+          }
+
           $expanded_translated = tmgmt_unflatten_data($translated);
           $job_item->addTranslatedData($expanded_translated);
           $this->saveResponseEtagForItem($response, $job_item);
@@ -147,6 +162,55 @@ class TmgmtZanataConnector {
           break;
       }
     }
+  }
+
+  /**
+   * Process translations of segmented text.
+   *
+   * returns translation data with segments joined for any text that has all
+   *         segments translated.
+   */
+  private function processTranslatedSegments($job_item, $flat_targets) {
+    // put targets in an associative array by id for segmenter to do lookup
+    $targets = $this->associationWithKey($flat_targets, function ($target) {
+      return (string) $target['resId'];
+    });
+
+    $source_data = array_filter(tmgmt_flatten_data($job_item->getData()),
+                                '_tmgmt_filter_data');
+    return $this->segmenter->joinTranslatedSegments($source_data, $targets);
+  }
+
+  /**
+   * Map all array values to calculated keys.
+   *
+   * Return a new associative array with the values from the given array mapped
+   * to keys generated with the given function.
+   */
+  private function associationWithKey($arr, $key_function) {
+    return array_reduce($arr, function ($carry, $item) use ($key_function) {
+      $carry[$key_function($item)] = $item;
+      return $carry;
+    }, array());
+  }
+
+  /**
+   * Process translations that do not use segmentation.
+   * returns $translated (data that is ready to be unflattened).
+   */
+  private function processUnsegmentedTranslations($targets) {
+    $translated = array();
+
+    foreach ($targets as $target) {
+      // TODO map Zanata states sensibly to TMGMT states.
+      // FIXME do I need translated and reviewed?
+      if ($target['state'] == 'Approved') {
+        $key = (string) $target['resId'];
+        $translated[$key]['#text'] = (string) $target['content'];
+      }
+    }
+
+    return $translated;
   }
 
   /**
@@ -279,6 +343,7 @@ class TmgmtZanataConnector {
       // 'extensions' => array(),
     );
     $data = $common_data;
+
     $data['textFlows'] = $this->prepareStrings($job_item);
 
     $options['data'] = json_encode($data);
@@ -334,7 +399,6 @@ class TmgmtZanataConnector {
    *         Zanata server
    */
   protected function prepareStrings(TMGMTJobItem $job_item) {
-    $data = $job_item->getData();
     $data = array_filter(tmgmt_flatten_data($job_item->getData()),
                          '_tmgmt_filter_data');
 
@@ -344,20 +408,34 @@ class TmgmtZanataConnector {
       $data = array('node_title' => $data['node_title']) + $data;
     }
 
+    if ($this->useSegmentation) {
+      $data = $this->segmenter->segmentText($data);
+    }
+
     $items = array();
     foreach ($data as $key => $value) {
-      $items[] = array(
-        'id' => $key,
-        // Zanata can only handle source as en-US locale.
-        'lang' => 'en-US',
-        'content' => $value['#text'],
-        'contents' => NULL,
-        'plural' => FALSE,
-        'extensions' => array(),
-        'revision' => 1,
-      );
+      $text = $value['#text'];
+      $items[] = $this->createItem($key, $text);
     }
 
     return $items;
   }
+
+  /**
+   * Create an associative array for a translation item ready for JSON
+   * encoding. The format is suitable for the Zanata server.
+   */
+  private function createItem($id, $text) {
+    return array(
+      'id' => $id,
+      // Zanata can only handle source as en-US locale.
+      'lang' => 'en-US',
+      'content' => $text,
+      'contents' => NULL,
+      'plural' => FALSE,
+      'extensions' => array(),
+      'revision' => 1,
+    );
+  }
+
 }
