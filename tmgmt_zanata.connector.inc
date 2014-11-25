@@ -118,23 +118,18 @@ class TmgmtZanataConnector {
       switch ($response->code) {
         case 200:
           $data = drupal_json_decode($response->data);
-
           $targets = $data['textFlowTargets'];
 
           if ($this->useSegmentation) {
-            $translated = $this->segmenter->processSegmentedTranslations($job_item, $targets);
+            $translated = $this->processTranslatedSegments($job_item, $targets);
           }
           else {
             $translated = $this->processUnsegmentedTranslations($targets);
           }
 
-
           $expanded_translated = tmgmt_unflatten_data($translated);
           $job_item->addTranslatedData($expanded_translated);
           $this->saveResponseEtagForItem($response, $job_item);
-
-
-
           break;
 
         case 304:
@@ -169,6 +164,35 @@ class TmgmtZanataConnector {
     }
   }
 
+  /**
+   * Process translations of segmented text.
+   *
+   * returns translation data with segments joined for any text that has all
+   *         segments translated.
+   */
+  private function processTranslatedSegments($job_item, $flat_targets) {
+    // put targets in an associative array by id for segmenter to do lookup
+    $targets = $this->associationWithKey($flat_targets, function ($target) {
+      return (string) $target['resId'];
+    });
+
+    $source_data = array_filter(tmgmt_flatten_data($job_item->getData()),
+                                '_tmgmt_filter_data');
+    return $this->segmenter->joinTranslatedSegments($source_data, $targets);
+  }
+
+  /**
+   * Map all array values to calculated keys.
+   *
+   * Return a new associative array with the values from the given array mapped
+   * to keys generated with the given function.
+   */
+  private function associationWithKey($arr, $key_function) {
+    return array_reduce($arr, function ($carry, $item) use ($key_function) {
+      $carry[$key_function($item)] = $item;
+      return $carry;
+    }, array());
+  }
 
   /**
    * Process translations that do not use segmentation.

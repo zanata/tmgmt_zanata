@@ -16,17 +16,12 @@ class TmgmtZanataSegmenter {
    * Create a new segmenter for general use.
    */
   public function __construct($segmentationType) {
-    // TODO match surrounding whitespace in both regex
     switch ($segmentationType) {
       case 'PARAGRAPHS':
+        // TODO look at PHP_EOL, it may be relevant.
         $this->segmentRegex = "@(\r\n\r\n|\n\n|(?<=</p>)|<br>|<br/>|<br />)@";
         break;
       case 'SENTENCES':
-        // FIXME leading whitespace on first string is not handled by this.
-        //       could do trimming with segments later (move whitespace to
-        //       skeleton parts).
-        //       Like: /^(\s*)(.*?)(\s*)$/
-        //        and put 1 on pre_skeleton, 2 in text, 3 on post_skeleton
         $this->segmentRegex =
           // non-ellipsis period before whitespace
           '/((?<!\.\.)(?<=[.])\s+'
@@ -44,31 +39,23 @@ class TmgmtZanataSegmenter {
           t('Segmentation type setting "@segtype" is not valid.',
             array ('@segtype' => $segmentationType)),
          'error');
-        // FIXME use same as for NONE? This really is a fail error condirion,
-        //       better to just fail.
+        // TODO fail with error, since segmenter cannot behave sensibly.
     }
   }
 
   /**
-   * Process segmented translations.
+   * Join segmented translations to full translations. Translations with missing
+   * segments are not included in returned data.
+   *
    * returns $translated (data that is ready to be unflattened).
    */
-  // FIXME this seems to know too much about the specific output format
-  public function processSegmentedTranslations($job_item, $flat_targets) {
-
-    // put targets in an associative array by id to allow lookup
-    $targets = $this->associationWithKey($flat_targets, function ($target) {
-      return (string) $target['resId'];
-    });
-
-    $source_data = array_filter(tmgmt_flatten_data($job_item->getData()),
-                                '_tmgmt_filter_data');
+  public function joinTranslatedSegments($source_data, $translated_segments) {
     $source_segments = $this->segmentText($source_data);
 
     $translated = array();
 
     foreach ($source_data as $source_id => $source_value) {
-      // first segment is always present, so count can be found there.
+      // first source segment is always present, so count can be found there.
       $first_segment_id = $this->segmentId($source_id, 0);
       $segment_count = $source_segments[$first_segment_id]['segment_count'];
       $index = 0;
@@ -76,9 +63,9 @@ class TmgmtZanataSegmenter {
 
       while ($index < $segment_count) {
         $next_segment_id = $this->segmentId($source_id, $index);
-        if (array_key_exists($next_segment_id, $targets)) {
-          $next_segment = $targets[$next_segment_id];
-          // FIXME do I need translated and reviewed?
+        if (array_key_exists($next_segment_id, $translated_segments)) {
+          $next_segment = $translated_segments[$next_segment_id];
+          // TODO check whether I need translated and reviewed?
           if ($next_segment['state'] == 'Approved') {
             $next_source_segment = $source_segments[$next_segment_id];
             $translation .= (string) $next_source_segment['pre_skeleton'];
@@ -105,19 +92,6 @@ class TmgmtZanataSegmenter {
    */
   private function segmentId($parent_key, $index) {
     return $parent_key . $this::SEGMENT_PREFIX . $index;
-  }
-
-  /**
-   * Map all array values to calculated keys.
-   *
-   * Return a new associative array with the values from the given array mapped
-   * to keys generated with the given function.
-   */
-  private function associationWithKey($arr, $key_function) {
-    return array_reduce($arr, function ($carry, $item) use ($key_function) {
-      $carry[$key_function($item)] = $item;
-      return $carry;
-    }, array());
   }
 
   // Reference, splits text at a delimiter:
@@ -183,16 +157,8 @@ class TmgmtZanataSegmenter {
     $value['parent_key'] = $parent_key;
     $text = $value['#text'];
 
-    // Should short strings be segmented? Maybe not.
-    //$text_length = strlen($text);
-
-    $paragraphs_and_separators = $this->explodeParagraphs($text);
-    // Note: paragraph is first, then separator, so for same index the paragraph
-    //       is the text and the separator is the post_skeleton.
-    $exploded_text = $this->extractParagraphs($paragraphs_and_separators);
-    $separators = $this->extractSeparators($paragraphs_and_separators);
-
-    $segment_count = count($exploded_text);
+    list($segment_texts, $separators) = $this->toSegmentsAndSeparators($text);
+    $segment_count = count($segment_texts);
 
     // Keep track of which index the next valid segment should use
     // (invalid segments become skeleton data).
@@ -201,16 +167,9 @@ class TmgmtZanataSegmenter {
     // skeleton data to attach to a segment
     $skeleton_buffer = '';
 
-    foreach ($exploded_text as $index => $segment_text) {
+    foreach ($segment_texts as $index => $segment_text) {
       $is_last_segment = $index == ($segment_count - 1);
-
-      // there is no separator after the last segment
-      if (array_key_exists($index, $separators)) {
-        $post_separator = $separators[$index];
-      }
-      else {
-        $post_separator = '';
-      }
+      $post_separator = $separators[$index];
 
       if ($this->isSegmentValid($segment_text)) {
         // move whitespace from string to skeleton
@@ -247,8 +206,8 @@ class TmgmtZanataSegmenter {
           else {
             // make a segment out of the buffer (to avoid an empty document).
             // expect $skeleton_buffer to be identical to $text here
-            // This is only done in case the empty document is due to a problem
-            // with the segmentation, so that there is still a way to translate.
+            // This is done in case the empty document is due to a problem with
+            // the segmentation, so that there is still a way to translate.
             $new_segment = $this->createSegment($value, $next_segment_index, '',
                                          $skeleton_buffer, '');
             $segment_id = $this->segmentId($parent_key, $next_segment_index);
@@ -274,62 +233,39 @@ class TmgmtZanataSegmenter {
 
 
   /**
-   * Like explode, but matches what I want it to match.
+   * Split text into segments and separators.
+   *
+   * Returns an array with an array of segments at index 0, and an array of
+   * separators at index 1. Both arrays are the same length.
    */
-  private function explodeParagraphs($text) {
-    // FIXME should handle \r, \n and \r\n (as well as others).
-    //       there is PHP_EOL, see what that does.
-
-    // TODO make this a field of the segmenter, set it when constructed
-    // based on segmentation type setting.
-    // $pattern = "/(\r\n)/";
-    // TODO just use the regex directly
-    $pattern = $this->segmentRegex;
-    // use | to separate multiple flags
+  private function toSegmentsAndSeparators($text) {
     $flags = PREG_SPLIT_DELIM_CAPTURE;
-    $exploded = preg_split($pattern, $text, NULL, $flags);
-    return $exploded;
-  }
+    $exploded = preg_split($this->segmentRegex, $text, NULL, $flags);
 
-  /**
-   * Return just paragraphs from the output of explodedParagraphs.
-   */
-  // FIXME change wording to be general for any segments
-  private function extractParagraphs($paragraphs_and_separators) {
-    $paragraphs = array();
-    foreach ($paragraphs_and_separators as $index => $text) {
-      if (($index % 2) === 0) {
-        $paragraphs[] = $text;
-      }
-    }
-    return $paragraphs;
-
-    // FIXME could use array filter, but it is not accepting this even though
-    //       it is consistent with the docs.
-    // return array_filter($paragraphs_and_separators, function ($index) {
-    //   return ($index % 2) === 1;
-    // }, ARRAY_FILTER_USE_KEY);
-  }
-
-  /**
-   * Return just separators from the output of explodedParagraphs.
-   */
-  // FIXME change wording to be general for any segments
-  private function extractSeparators($paragraphs_and_separators) {
+    $segments = array();
     $separators = array();
-    foreach ($paragraphs_and_separators as $index => $text) {
-      if (($index % 2) === 1) {
+
+    foreach ($exploded as $index => $text) {
+      if (($index % 2) === 0) {
+        $segments[] = $text;
+      }
+      else {
         $separators[] = $text;
       }
     }
-    return $separators;
 
-    // FIXME figure out why array filter is not working:
-    // return array_filter($paragraphs_and_separators, function ($index) {
-    //   return ($index % 2) === 0;
-    // }, ARRAY_FILTER_USE_KEY);
+    // Ensure $separators is the same length as $segments.
+    $separators[] = '';
+
+    return array($segments, $separators);
   }
 
+  /**
+   * Separate leading and trailing whitespace from the content of the text.
+   *
+   * Returns an array of length 3 in the form:
+   *     (<leading whitespace>, <content>, <trailing whitespace>)
+   */
   private function partitionWhitespace($text) {
     $content = trim($text);
     $content_with_post = ltrim($text);
@@ -345,12 +281,12 @@ class TmgmtZanataSegmenter {
   /**
    * Create a new segment object based on a template segment object.
    */
-  private function createSegment($base, $index, $pre, $text, $post) {
-    $base['pre_skeleton'] = $pre;
-    $base['post_skeleton'] = $post;
-    $base['#text'] = $text;
-    $base['segment_index'] = $index;
-    return $base;
+  private function createSegment($template, $index, $pre, $text, $post) {
+    $template['pre_skeleton'] = $pre;
+    $template['post_skeleton'] = $post;
+    $template['#text'] = $text;
+    $template['segment_index'] = $index;
+    return $template;
   }
 
   /**
