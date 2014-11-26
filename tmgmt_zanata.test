@@ -141,4 +141,344 @@ class TmgmtZanataSegmenterRegexTestCase extends DrupalUnitTestCase {
       'Sentence regex');
   }
 
+  function testParagraphSegmentationRegex() {
+    $paragraph_regex = TmgmtZanataSegmenter::PARAGRAPH_REGEX;
+
+    $matched = preg_match($paragraph_regex, "Line 1\nLine 2");
+    $this->assertIdentical($matched, $this::NO_MATCH,
+      'No match expected for single newline.',
+      'Paragraph regex');
+
+    $matched = preg_match($paragraph_regex, "Line 1\r\nLine 2");
+    $this->assertIdentical($matched, $this::NO_MATCH,
+      'No match expected for single Windows newline.',
+      'Paragraph regex');
+
+    $matched = preg_match($paragraph_regex,
+                          "Sentence 1? Sentence 2. Sentence 3! Sentence 4.");
+    $this->assertIdentical($matched, $this::NO_MATCH,
+      'No match expected for sentence terminators.',
+      'Paragraph regex');
+
+    $matched = preg_match($paragraph_regex, "<p>Paragraph 1<p>Paragraph 2",
+                          $matches, PREG_OFFSET_CAPTURE);
+    $this->assertIdentical($matched, $this::MATCH,
+      'Match expected before opening paragraph tag that is not the start of '
+      . 'the string.',
+      'Paragraph regex');
+    if ($matched) {
+      $full_match = $matches[0][0];
+      $this->assertIdentical($full_match, '',
+        'Match before opening paragraph tag should not include the tag itself.',
+        'Paragraph regex');
+      $match_pos = $matches[0][1];
+      $this->assertIdentical($match_pos, 14,
+        'Match for opening paragraph tag should be immediately before the tag.',
+        'Paragraph regex');
+    }
+
+    $matched = preg_match($paragraph_regex,
+                          "<p>Paragraph 1\n  <p>\n    Paragraph 2",
+                          $matches);
+    $this->assertIdentical($matched, $this::MATCH,
+      'Match expected before opening paragraph tag that is not the start of '
+      . 'the string and is preceded by whitespace.',
+      'Paragraph regex');
+    if ($matched) {
+      $full_match = $matches[0];
+      $this->assertIdentical($full_match, "\n  ",
+        'Match before opening paragraph tag should include leading whitespace, '
+        . 'but not the tag itself or any trailing whitespace.',
+        'Paragraph regex');
+    }
+
+    $matched = preg_match($paragraph_regex, "Paragraph 1\n\nParagraph 2",
+                          $matches);
+    $this->assertIdentical($matched, $this::MATCH,
+      'Match expected for 2 newlines in a row.',
+      'Paragraph regex');
+    if ($matched) {
+      $full_match = $matches[0];
+      $this->assertIdentical($full_match, "\n\n",
+        'Match for 2 newlines should include both newlines.',
+        'Paragraph regex');
+    }
+
+    $matched = preg_match($paragraph_regex, "Paragraph 1\n\n\nParagraph 2",
+                          $matches);
+    $this->assertIdentical($matched, $this::MATCH,
+      'Match expected for more than 2 newlines in a row.',
+      'Paragraph regex');
+    $full_match = $matches[0];
+    $this->assertIdentical($full_match, "\n\n\n",
+      'Match for 2 or more newlines should include any adjacent newlines.',
+      'Paragraph regex');
+
+    $matched = preg_match($paragraph_regex, "Paragraph 1\n  \t \nParagraph 2",
+                          $matches);
+    $this->assertIdentical($matched, $this::MATCH,
+      'Match expected for 2 newlines with only whitespace between them.',
+      'Paragraph regex');
+    if ($matched) {
+      $full_match = $matches[0];
+      $this->assertIdentical($full_match, "\n  \t \n",
+        'Match for 2 newlines with whitespace between should include both '
+        . 'newlines and the intervening space.',
+        'Paragraph regex');
+    }
+
+    $matched = preg_match($paragraph_regex, "Paragraph 1\r\n\r\nParagraph 2",
+                          $matches);
+    $this->assertIdentical($matched, $this::MATCH,
+      'Match expected for 2 Windows newlines in a row.',
+      'Paragraph regex');
+    if ($matched) {
+      $full_match = $matches[0];
+      $this->assertIdentical($full_match, "\r\n\r\n",
+        'Match for 2 Windows newlines should include both newlines.',
+        'Paragraph regex');
+    }
+
+    $matched = preg_match($paragraph_regex,
+                          "Paragraph 1\r\n\r\n\r\nParagraph 2",
+                          $matches);
+    $this->assertIdentical($matched, $this::MATCH,
+      'Match expected for more than 2 Windows newlines in a row.',
+      'Paragraph regex');
+    $full_match = $matches[0];
+    $this->assertIdentical($full_match, "\r\n\r\n\r\n",
+      'Match for 2 or more Windows newlines should include adjacent newlines.',
+      'Paragraph regex');
+
+    $matched = preg_match($paragraph_regex,
+                          "Paragraph 1\r\n  \t \r\nParagraph 2",
+                          $matches);
+    $this->assertIdentical($matched, $this::MATCH,
+      'Match expected for 2 Windows newlines with only whitespace between them.',
+      'Paragraph regex');
+    if ($matched) {
+      $full_match = $matches[0];
+      $this->assertIdentical($full_match, "\r\n  \t \r\n",
+        'Match for 2 Windows newlines with whitespace between should include '
+        . ' both newlines and the intervening space.',
+        'Paragraph regex');
+    }
+
+    $matched = preg_match($paragraph_regex, "Paragraph 1  \n\n\tParagraph 2",
+                          $matches);
+    $this->assertIdentical($matched, $this::MATCH,
+      'Match expected for 2 newlines in a row with surrounding whitespace.',
+      'Paragraph regex');
+    if ($matched) {
+      $full_match = $matches[0];
+      $this->assertIdentical($full_match, "  \n\n\t",
+        'Match for 2 newlines should include surrounding whitespace.',
+        'Paragraph regex');
+    }
+
+    $matched = preg_match($paragraph_regex, "Paragraph 1\t\r\n\r\n  Paragraph 2",
+                          $matches);
+    $this->assertIdentical($matched, $this::MATCH,
+      'Match expected for 2 Windows newlines in a row with surrounding '
+      . 'whitespace.',
+      'Paragraph regex');
+    if ($matched) {
+      $full_match = $matches[0];
+      $this->assertIdentical($full_match, "\t\r\n\r\n  ",
+        'Match for 2 Windows newlines should include surrounding whitespace.',
+        'Paragraph regex');
+    }
+
+    $matched = preg_match($paragraph_regex,
+                          "Paragraph 1</p>Paragraph 2",
+                          $matches, PREG_OFFSET_CAPTURE);
+    $this->assertIdentical($matched, $this::MATCH,
+      'Match expected for closing paragraph tag.',
+      'Paragraph regex');
+    if ($matched) {
+      $full_match = $matches[0][0];
+      $this->assertIdentical($full_match, '',
+        'Match for closing paragraph tag should not include the tag iteslf.',
+        'Paragraph regex');
+      $match_pos = $matches[0][1];
+      $this->assertIdentical($match_pos, 15,
+        'Match position for closing paragraph tag should be immediately before '
+        . 'the next non-whitespace character.',
+        'Paragraph regex');
+    }
+
+    $matched = preg_match($paragraph_regex,
+                          "<p>Paragraph 1");
+    $this->assertIdentical($matched, $this::NO_MATCH,
+      'No match expected for opening paragraph tag that is at the start of the '
+      . 'string.',
+      'Paragraph regex');
+
+    $matched = preg_match($paragraph_regex,
+                          "\n<p>Paragraph 1",
+                          $matches);
+    $this->assertIdentical($matched, $this::MATCH,
+      'Match expected for opening paragraph tag that is preceded only by '
+      . 'whitespace.',
+      'Paragraph regex');
+    if ($matched) {
+      $full_match = $matches[0];
+      $this->assertIdentical($full_match, "\n",
+        'Match before paragraph tag at start of string should include all '
+        . 'preceding whitespace.',
+        'Paragraph regex');
+    }
+
+    $matched = preg_match($paragraph_regex,
+                          "\n  <p>Paragraph 1",
+                          $matches);
+    $this->assertIdentical($matched, $this::MATCH,
+      'Match expected for opening paragraph tag that is preceded only by '
+      . 'whitespace.',
+      'Paragraph regex');
+    if ($matched) {
+      $full_match = $matches[0];
+      $this->assertIdentical($full_match, "\n  ",
+        'Match before paragraph tag at start of string should include all '
+        . 'preceding whitespace.',
+        'Paragraph regex');
+    }
+
+    $matched = preg_match($paragraph_regex,
+                          "<p>Paragraph 1</p>");
+    $this->assertIdentical($matched, $this::NO_MATCH,
+      'No match expected for closing paragraph tag that is at the end of the '
+      . 'string.',
+      'Paragraph regex');
+
+    $matched = preg_match($paragraph_regex,
+                          "Paragraph 1</p>\n  Paragraph 2",
+                          $matches, PREG_OFFSET_CAPTURE);
+    $this->assertIdentical($matched, $this::MATCH,
+      'Match expected for closing paragraph tag followed by whitespace.',
+      'Paragraph regex');
+    if ($matched) {
+      $full_match = $matches[0][0];
+      $this->assertIdentical($full_match, "\n  ",
+        'Match for closing paragraph tag should include whitespace after the '
+        . 'tag.',
+        'Paragraph regex');
+      $match_pos = $matches[0][1];
+      $this->assertIdentical($match_pos, 15,
+        'Match position for closing paragraph tag should be immediately before '
+        . 'the next non-whitespace character.',
+        'Paragraph regex');
+    }
+
+    $matched = preg_match($paragraph_regex,
+                          "Paragraph 1<br>Paragraph 2",
+                          $matches);
+    $this->assertIdentical($matched, $this::MATCH,
+      'Match expected for linebreak tag.',
+      'Paragraph regex');
+    if ($matched) {
+      $full_match = $matches[0];
+      $this->assertIdentical($full_match, "<br>",
+        'Match for linebreak tag should include the matched tag.',
+        'Paragraph regex');
+    }
+    $matched = preg_match($paragraph_regex,
+                          "Paragraph 1  <br>\n  Paragraph 2",
+                          $matches);
+    $this->assertIdentical($matched, $this::MATCH,
+      'Match expected for linebreak tag with surrounding whitespace.',
+      'Paragraph regex');
+    if ($matched) {
+      $full_match = $matches[0];
+      $this->assertIdentical($full_match, "  <br>\n  ",
+        'Match for linebreak tag should include surrounding whitespace.',
+        'Paragraph regex');
+    }
+
+    $matched = preg_match($paragraph_regex,
+                          "Paragraph 1  <br/>\n  Paragraph 2",
+                          $matches);
+    $this->assertIdentical($matched, $this::MATCH,
+      'Match expected for self-closing linebreak tag.',
+      'Paragraph regex');
+    if ($matched) {
+      $full_match = $matches[0];
+      $this->assertIdentical($full_match, "  <br/>\n  ",
+        'Match for self-closing linebreak tag should include surrounding '
+        . 'whitespace.',
+        'Paragraph regex');
+    }
+
+    $matched = preg_match($paragraph_regex,
+                          "Paragraph 1  <br />\n  Paragraph 2",
+                          $matches);
+    $this->assertIdentical($matched, $this::MATCH,
+      'Match expected for wide self-closing linebreak tag.',
+      'Paragraph regex');
+    if ($matched) {
+      $full_match = $matches[0];
+      $this->assertIdentical($full_match, "  <br />\n  ",
+        'Match for wide self-closing linebreak tag should include surrounding '
+        . 'whitespace.',
+        'Paragraph regex');
+    }
+
+    $matched = preg_match($paragraph_regex,
+                          "Paragraph 1<br><br><br>Paragraph 2",
+                          $matches);
+    $this->assertIdentical($matched, $this::MATCH,
+      'Match expected for multiple adjacent linebreak tags.',
+      'Paragraph regex');
+    if ($matched) {
+      $full_match = $matches[0];
+      $this->assertIdentical($full_match, "<br><br><br>",
+        'Match for multiple adjacent linebreak tags should include all '
+        . 'adjacent linebreak tags.',
+        'Paragraph regex');
+    }
+
+    $matched = preg_match($paragraph_regex,
+                          "Paragraph 1<br/><br><br />Paragraph 2",
+                          $matches);
+    $this->assertIdentical($matched, $this::MATCH,
+      'Match expected for mixed types of adjacent linebreak tags.',
+      'Paragraph regex');
+    if ($matched) {
+      $full_match = $matches[0];
+      $this->assertIdentical($full_match, "<br/><br><br />",
+        'Match for mixed types of adjacent linebreak tags should include all '
+        . 'adjacent linebreak tags.',
+        'Paragraph regex');
+    }
+
+    $matched = preg_match($paragraph_regex,
+                          "Paragraph 1<br>  <br>\n<br>Paragraph 2",
+                          $matches);
+    $this->assertIdentical($matched, $this::MATCH,
+      'Match expected for multiple linebreak tags separated by only whitespace.',
+      'Paragraph regex');
+    if ($matched) {
+      $full_match = $matches[0];
+      $this->assertIdentical($full_match, "<br>  <br>\n<br>",
+        'Match for multiple linebreak tags separated by only whitespace should '
+        . 'include all the whitespace and linebreak tags.',
+        'Paragraph regex');
+    }
+
+    $matched = preg_match($paragraph_regex,
+                          "Paragraph 1</p><br>\n<br>Paragraph 2",
+                          $matches);
+    $this->assertIdentical($matched, $this::MATCH,
+      'Match expected for closing paragraph tag followed by linebreak tags.',
+      'Paragraph regex');
+    if ($matched) {
+      $full_match = $matches[0];
+      $this->assertIdentical($full_match, "<br>\n<br>",
+        'Match for closing paragraph tag should include any mix of linebreak '
+        . 'tags and whitespace that follow, but not the closing paragraph tag '
+        . 'itself.',
+        'Paragraph regex');
+    }
+  }
+
 }

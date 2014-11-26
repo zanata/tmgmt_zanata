@@ -10,11 +10,24 @@
 class TmgmtZanataSegmenter {
   const SEGMENT_PREFIX = '-segment-';
 
+  // - any of these, including surrounding whitespace:
+  //   - 2 or more newlines separated by only whitespace; OR
+  //   - 2 or more Windows style newlines separated by only whitespace; OR
+  //   - 1 or more linebreak tags separated by only whitespace; OR
+  // - before an opening paragraph tag that is not the start of the string,
+  //   including leading whitespace; OR
+  // - after a closing paragraph tag that is not the end of the string,
+  //   including trailing whitespace
+  // TODO look at PHP_EOL, it may be relevant.
+  const PARAGRAPH_REGEX =
+    "@((?:\\s*(?:\r\n\\s*\r\n|\n\\s*\n|<br\s*/?>)\\s*)+|(?:^(?=\\s)|(?<!\\s|^))\\s*(?=<p>)|(?<=</p>)\\s*(?!$))@";
+
   // non-ellipsis period before whitespace, except in e.g. and i.e.; OR
   // punctuation at end of sentence before whitespace; OR
   // ideographic period regardless of whitespace
   const SENTENCE_REGEX =
     '/((?<=(?<!\.\.|e\.g|i\.e)\.)\s+|(?<=[!?؟])\s+|(?<=。)\s*)/';
+
 
   private $segmentRegex;
 
@@ -24,8 +37,7 @@ class TmgmtZanataSegmenter {
   public function __construct($segmentationType) {
     switch ($segmentationType) {
       case 'PARAGRAPHS':
-        // TODO look at PHP_EOL, it may be relevant.
-        $this->segmentRegex = "@(\r\n\r\n|\n\n|(?<=</p>)|<br>|<br/>|<br />)@";
+        $this->segmentRegex = $this::PARAGRAPH_REGEX;
         break;
       case 'SENTENCES':
         $this->segmentRegex = $this::SENTENCE_REGEX;
