@@ -10,10 +10,11 @@
 class TmgmtZanataSegmenter {
   const SEGMENT_PREFIX = '-segment-';
 
-  // non-ellipsis period before whitespace; OR
+  // non-ellipsis period before whitespace, except in e.g. and i.e.; OR
   // punctuation at end of sentence before whitespace; OR
   // ideographic period regardless of whitespace
-  const SENTENCE_REGEX = '/((?<!\.\.)(?<=[.])\s+|(?<=[!?؟])\s+|(?<=。)\s*)/';
+  const SENTENCE_REGEX =
+    '/((?<=(?<!\.\.|e\.g|i\.e)\.)\s+|(?<=[!?؟])\s+|(?<=。)\s*)/';
 
   private $segmentRegex;
 
