@@ -10,6 +10,11 @@
 class TmgmtZanataSegmenter {
   const SEGMENT_PREFIX = '-segment-';
 
+  // non-ellipsis period before whitespace; OR
+  // punctuation at end of sentence before whitespace; OR
+  // ideographic period regardless of whitespace
+  const SENTENCE_REGEX = '/((?<!\.\.)(?<=[.])\s+|(?<=[!?؟])\s+|(?<=。)\s*)/';
+
   private $segmentRegex;
 
   /**
@@ -22,13 +27,7 @@ class TmgmtZanataSegmenter {
         $this->segmentRegex = "@(\r\n\r\n|\n\n|(?<=</p>)|<br>|<br/>|<br />)@";
         break;
       case 'SENTENCES':
-        $this->segmentRegex =
-          // non-ellipsis period before whitespace
-          '/((?<!\.\.)(?<=[.])\s+'
-          // punctuation at end of sentence before whitespace
-          . '|(?<=[!?؟])\s+'
-          // ideographic period regardless of whitespace
-          . '|(?<=。)\s*)/';
+        $this->segmentRegex = $this::SENTENCE_REGEX;
         break;
       case 'NONE':
         // Regex purposely matches nothing so there will be a single segment.

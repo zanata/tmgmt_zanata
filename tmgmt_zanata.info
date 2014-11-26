@@ -8,3 +8,4 @@ files[] = tmgmt_zanata.segmenter.inc
 files[] = tmgmt_zanata.connector.inc
 files[] = tmgmt_zanata.plugin.inc
 files[] = tmgmt_zanata.ui.inc
+files[] = tmgmt_zanata.test

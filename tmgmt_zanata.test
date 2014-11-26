@@ -1,0 +1,144 @@
+<?php
+
+class TmgmtZanataSegmenterRegexTestCase extends DrupalUnitTestCase {
+
+  // return values from preg_match
+  const NO_MATCH = 0;
+  const MATCH = 1;
+  const MATCH_ERROR = FALSE;
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function getInfo() {
+    // Note: do not translate getInfo strings
+    return array(
+      'name' => 'TMGMT Zanata Tests',
+      'description' => 'Unit tests for TMGMT Zanata.',
+      // This is a global group in the Testing config page
+      'group' => 'TMGMT Zanata'
+    );
+  }
+
+  /**
+   * Load the code for TMGMT Zanata into the test environment.
+   */
+  public function setUp() {
+    $module_path = drupal_get_path('module', 'tmgmt_zanata');
+    include_once($module_path . '/tmgmt_zanata.segmenter.inc');
+    parent::setUp();
+  }
+
+  // Note: all tests should start with 'test' to be auto-detected
+
+
+  /**
+   * I was having some issues loading classes in tests. This just makes sure I
+   * have done setup properly. If any of these fail, other tests will likely
+   * have errors.
+   */
+  function testClassesAreLoaded() {
+    $this->assertTrue(class_exists('TmgmtZanataSegmenter', FALSE),
+      'class TmgmtZanataSegmenter should be available.', 'Test setup');
+  }
+
+  function testSentenceSegmentationRegex() {
+    $sentence_regex = TmgmtZanataSegmenter::SENTENCE_REGEX;
+
+    $matched = preg_match($sentence_regex, 'No sentence terminator');
+    $this->assertIdentical($matched, $this::NO_MATCH,
+      'No match expected when there are no sentence terminators.',
+      'Sentence regex');
+
+
+    $matched = preg_match($sentence_regex,
+                          'Has a sentence terminator but no space after.');
+    $this->assertIdentical($matched, $this::NO_MATCH,
+      'No match expected for a single sentence ending on the last character.',
+      'Sentence regex');
+
+    $matched = preg_match($sentence_regex,
+                          'This sentence has ... an ellipsis');
+    $this->assertIdentical($matched, $this::NO_MATCH,
+      'No match expected for ellipsis.', 'Sentence regex');
+
+    $matched = preg_match($sentence_regex,
+                          'This sentence ends with a period. ');
+    $this->assertIdentical($matched, $this::MATCH,
+      'Match expected for a period followed by whitespace (space).',
+      'Sentence regex');
+
+    $matched = preg_match($sentence_regex,
+                          "This sentence ends with a period.\n");
+    $this->assertIdentical($matched, $this::MATCH,
+      'Match expected for a period followed by whitespace (newline).',
+      'Sentence regex');
+
+    $matched = preg_match($sentence_regex,
+                          "This sentence ends with a period.\r\n");
+    $this->assertIdentical($matched, $this::MATCH,
+      'Match expected for a period followed by whitespace (Windows newline).',
+      'Sentence regex');
+
+    $matched = preg_match($sentence_regex,
+                          "This sentence ends with a period.\t");
+    $this->assertIdentical($matched, $this::MATCH,
+      'Match expected for a period followed by whitespace (tab).',
+      'Sentence regex');
+
+    $matched = preg_match($sentence_regex,
+                          "The example is e.g. an example");
+    $this->assertIdentical($matched, $this::NO_MATCH,
+      'No match expected for the abbreviation e.g.',
+      'Sentence regex');
+
+    $matched = preg_match($sentence_regex,
+                          "The example is i.e. an example");
+    $this->assertIdentical($matched, $this::NO_MATCH,
+      'No match expected for the abbreviation i.e.',
+      'Sentence regex');
+
+    $matched = preg_match($sentence_regex,
+                          "It is 32.45 degrees");
+    $this->assertIdentical($matched, $this::NO_MATCH,
+      'No match expected for decimal point in a number',
+      'Sentence regex');
+
+    $matched = preg_match($sentence_regex,
+                          'Is this sentence a query? ');
+    $this->assertIdentical($matched, $this::MATCH,
+      'Match expected for a question mark followed by whitespace (space).',
+      'Sentence regex');
+
+    $matched = preg_match($sentence_regex,
+                          'This sentence is an exclamation! ');
+    $this->assertIdentical($matched, $this::MATCH,
+      'Match expected for an exclamation mark followed by whitespace (space).',
+      'Sentence regex');
+
+    $matched = preg_match($sentence_regex,
+                          'This sentence is an exclamation! ');
+    $this->assertIdentical($matched, $this::MATCH,
+      'Match expected for an exclamation mark followed by whitespace (space).',
+      'Sentence regex');
+
+    $matched = preg_match($sentence_regex,
+                          'This sentence, has a comma; a colon is present');
+    $this->assertIdentical($matched, $this::NO_MATCH,
+      'No match expected for comma or semicolon.',
+      'Sentence regex');
+
+    preg_match($sentence_regex,
+               'Period with 2 spaces after.  Then next sentence',
+               $matches, PREG_OFFSET_CAPTURE);
+    $full_match = $matches[0][0];
+    $this->assertIdentical($full_match, '  ',
+      'Punctuation at end of sentence should not be included in the match.',
+      'Sentence regex');
+    $match_pos = $matches[0][1];
+    $this->assertIdentical($match_pos, 27,
+      'Match should immediately follow punctuation at end of sentence.',
+      'Sentence regex');
+  }
+
+}
