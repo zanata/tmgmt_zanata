@@ -24,7 +24,7 @@ way you prefer to activate modules.
 
 After installing and activating the module, the plugin needs some details about
 your Zanata user and the project on Zanata. You can set these on the translator
-congiguration page.
+configuration page.
 
 You will need a free Zanata account, and a project with at least one version.
 
