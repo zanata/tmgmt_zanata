@@ -111,6 +111,18 @@ class TMGMTZanataTranslatorUIController extends TMGMTDefaultTranslatorUIControll
       '#submit' => array('tmgmt_zanata_resubmit_translations'),
     );
 
+    $connector = $job->getTranslatorController()->getConnector($job);
+    $url = $connector->getEditorUrl();
+    $link = l(t('Open in Zanata translation editor'),
+              $url,
+              array(
+                'external' => TRUE,
+                'attributes' => array('target' => '_blank')));
+
+    $info['actions']['open_zanata'] = array(
+      '#markup' => $link
+    );
+
     return $info;
   }
 }
