@@ -52,6 +52,17 @@ class TmgmtZanataConnector {
   }
 
   /**
+   * Generate the URL for the translation editor in Zanata.
+   *
+   * This will be the URL to the document list in the editor, ready for a node
+   * to be selected.
+   */
+  public function getEditorUrl() {
+    $locale = $this->getLocale();
+    return "{$this->serverUrl}/webtrans/Application.seam?project={$this->projectId}&iteration={$this->versionId}&localeId={$locale}&locale=en";
+  }
+
+  /**
    * Generate a base URL for documents in a project/version.
    *
    * @return string
