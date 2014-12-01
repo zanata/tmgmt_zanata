@@ -94,22 +94,22 @@ class TMGMTZanataTranslatorUIController extends TMGMTDefaultTranslatorUIControll
     /* TODO show last known translation statistics overall and per node */
 
     $info['actions'] = array('#type' => 'actions');
-    // TODO limit access of this button to only jobs that have been submitted to
-    // Zanata. Use '#access' key on the button, with an appropriate check
-    // on the job such as $job->isSubmitted() if that exists.
-    $info['actions']['poll'] = array(
-      '#type' => 'submit',
-      '#value' => t('Fetch available translations'),
-      '#description' => t('Check for updated translations on the Zanata server.'),
-      '#submit' => array('tmgmt_zanata_poll_translations'),
-    );
 
-    $info['actions']['resubmit'] = array(
-      '#type' => 'submit',
-      '#value' => t('Resubmit to translator'),
-      '#description' => t('Send the source text to the Zanata server again.'),
-      '#submit' => array('tmgmt_zanata_resubmit_translations'),
-    );
+    if ($job->isActive()) {
+      $info['actions']['poll'] = array(
+        '#type' => 'submit',
+        '#value' => t('Fetch available translations'),
+        '#description' => t('Check for updated translations on the Zanata server.'),
+        '#submit' => array('tmgmt_zanata_poll_translations'),
+      );
+
+      $info['actions']['resubmit'] = array(
+        '#type' => 'submit',
+        '#value' => t('Resubmit to translator'),
+        '#description' => t('Send the source text to the Zanata server again.'),
+        '#submit' => array('tmgmt_zanata_resubmit_translations'),
+      );
+    }
 
     $connector = $job->getTranslatorController()->getConnector($job);
     $url = $connector->getEditorUrl();
