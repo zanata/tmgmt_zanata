@@ -99,7 +99,7 @@ class TMGMTZanataTranslatorUIController extends TMGMTDefaultTranslatorUIControll
     // on the job such as $job->isSubmitted() if that exists.
     $info['actions']['poll'] = array(
       '#type' => 'submit',
-      '#value' => t('Update translation info'),
+      '#value' => t('Fetch available translations'),
       '#description' => t('Check for updated translations on the Zanata server.'),
       '#submit' => array('tmgmt_zanata_poll_translations'),
     );
