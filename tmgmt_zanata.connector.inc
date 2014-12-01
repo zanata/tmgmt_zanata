@@ -97,10 +97,11 @@ class TmgmtZanataConnector {
    * Check for and download available translations from Zanata server.
    */
   public function pollTranslations() {
-
-
     $job = $this->job;
     $base_options = $this->getBaseOptions();
+
+    $count_items_with_changes = 0;
+    $count_strings_changed = 0;
 
     foreach ($job->getItems() as $job_item) {
       $url = $this->getItemTranslationUrl($job_item);
@@ -128,13 +129,26 @@ class TmgmtZanataConnector {
           }
 
           $expanded_translated = tmgmt_unflatten_data($translated);
+
+          $count_finished_before = $this->countFinishedTranslations($job_item);
           $job_item->addTranslatedData($expanded_translated);
+          $count_finished_after = $this->countFinishedTranslations($job_item);
+
+          $delta_finished = $count_finished_after - $count_finished_before;
+          if ($delta_finished !== 0) {
+            $job_item->addMessage(format_plural($delta_finished,
+              '1 new translation fetched.',
+              '@count new translations fetched.'));
+            $count_items_with_changes++;
+            $count_strings_changed += $delta_finished;
+          }
+
+
           $this->saveResponseEtagForItem($response, $job_item);
           break;
 
         case 304:
           // Not modified (i.e. etag matches).
-          $job_item->addMessage(t('No new translations are available yet.'));
           break;
 
         case 401:
@@ -145,8 +159,7 @@ class TmgmtZanataConnector {
           break;
 
         case 404:
-          // This may not be worth logging, is could just be considered noise.
-          $job_item->addMessage(t('No translations are available yet.'));
+          // No translations are available yet.
           break;
 
         default:
@@ -162,6 +175,28 @@ class TmgmtZanataConnector {
           break;
       }
     }
+
+    if ($count_items_with_changes === 0) {
+      $job->addMessage(t('Checked for translations. No new translations were available.'));
+    }
+    else {
+      $job->addMessage(format_plural($count_items_with_changes,
+        'Checked for translations. Fetched new translations for 1 node (total translations: @new_translations).',
+        'Checked for translations. Fetched new translations for @count nodes (total translations: @new_translations).',
+        array(
+          '@new_translations' => $count_strings_changed
+        )));
+    }
+  }
+
+  /**
+   * Get the number of translations that have been fetched from Zanata.
+   */
+  private function countFinishedTranslations(TMGMTJobItem $job_item) {
+    // fetched translations show up as translated or accepted, depending whether
+    // all translations are available for the node, and whether auto-accept is
+    // turned on.
+    return $job_item->getCountAccepted() + $job_item->getCountTranslated();
   }
 
   /**
