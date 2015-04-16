@@ -9,8 +9,6 @@
  */
 class TmgmtZanataConnector {
 
-  // const SEGMENT_PREFIX = '-segment-';
-
   private $useSegmentation;
 
   private $segmenter;
