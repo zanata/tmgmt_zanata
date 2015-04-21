@@ -161,10 +161,7 @@ class TmgmtZanataConnector {
           break;
 
         case 401:
-          drupal_set_message(
-            t('There was an authorization problem, please check your username and API key in the translator configuration.'),
-            'warning',
-            FALSE);
+          $this->showAuthErrorMessage();
           break;
 
         case 404:
@@ -414,15 +411,21 @@ class TmgmtZanataConnector {
         return TRUE;
 
       case 401:
-        drupal_set_message(t('There was an authorization problem, please check your username and API key in the translator configuration.'),
-                             'error',
-                             FALSE);
+        $this->showAuthErrorMessage();
         $job_item->addMessage(
           t('Item "@title" was not successfully sent to Zanata due to an authorization error.'),
           array(
             '@title' => $job_item->defaultLabel(),
             '@code' => $response->code,
           ), 'error');
+        return FALSE;
+
+      case 403:
+        $this->showPermissionErrorMessage();
+        return FALSE;
+
+      case 404:
+        $this->showNotFoundErrorMessage();
         return FALSE;
 
       default:
@@ -434,6 +437,24 @@ class TmgmtZanataConnector {
           ), 'error');
         return FALSE;
     }
+  }
+
+  private function showNotFoundErrorMessage() {
+    drupal_set_message(t('The configured project or version does not exist on Zanata, please check that the project slug and version slug in the translator configuration match a project-version on Zanata.'),
+                         'error',
+                         FALSE);
+  }
+
+  private function showAuthErrorMessage() {
+    drupal_set_message(t('There was an authorization problem, please check your username and API key in the translator configuration.'),
+                         'error',
+                         FALSE);
+  }
+
+  private function showPermissionErrorMessage() {
+    drupal_set_message(t('There was a permission problem, please check that the correct project-version and user are specified in the translator configuration, that the user is a maintainer of the project, and that the project-version is not read-only.'),
+                         'error',
+                         FALSE);
   }
 
   /**
