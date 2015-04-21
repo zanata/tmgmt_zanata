@@ -174,7 +174,7 @@ class TmgmtZanataConnector {
             'warning',
             FALSE);
           $job_item->addMessage(
-            t('Tried to update translations but got response  code @code when fetching URL @url.'),
+            'Tried to update translations but got response  code @code when fetching URL @url.',
             array(
               '@code' => $response->code,
               '@url' => $url));
@@ -183,7 +183,7 @@ class TmgmtZanataConnector {
     }
 
     if ($count_items_with_changes === 0) {
-      $job->addMessage(t('Checked for translations. No new translations were available.'));
+      $job->addMessage('Checked for translations. No new translations were available.');
     }
     else {
       $job->addMessage(format_plural($count_items_with_changes,
@@ -367,16 +367,16 @@ class TmgmtZanataConnector {
     else {
       // TODO include count of failed items.
       $this->job->addMessage(
-        t('One or more items were not successfully sent to Zanata. Try again after correcting the problem items.'),
+        'One or more items were not successfully sent to Zanata. Try again after correcting the problem items.',
         array(), 'error');
     }
 
     $this->job->addMessage(
-      t('Sent existing translations for @sent of @total nodes.',
+      'Sent existing translations for @sent of @total nodes.',
         array(
           '@sent' => $sent_translations_for_how_many,
           '@total' => count($this->job->getItems())
-        )));
+        ));
   }
 
 
@@ -436,7 +436,7 @@ class TmgmtZanataConnector {
               'warning',
               FALSE);
             $job_item->addMessage(
-              t('Tried to send existing translations but got response code @code when sending to URL @url.'),
+              'Tried to send existing translations but got response code @code when sending to URL @url.',
               array(
                 '@code' => $response->code,
                 '@url' => $url));
@@ -450,12 +450,11 @@ class TmgmtZanataConnector {
     }
     else {
       $job_item->addMessage(
-        t('Item "@id" is not type "node" (is type "@type"), unable to look up translations.'),
+        'Item "@id" is not type "node" (is type "@type"), unable to look up translations.',
         array(
           '@id' => $id,
           '@type' => $job_item->item_type,
-        )
-      );
+        ));
     }
 
     return FALSE;
@@ -539,35 +538,30 @@ class TmgmtZanataConnector {
 
         // TODO use docId when it is being cached
         $job_item->addMessage(
-          t('Found existing "@lang" translations for @count of @total strings in "node/@id".'),
+          'Found existing "@lang" translations for @count of @total strings in "node/@id".',
           array(
             '@lang' => $language,
             '@count' => count($trans_data_matching_source),
             '@total' => count($source_data),
             '@id' => $id,
-          )
-        );
+          ));
 
         return $trans_data_matching_source;
       }
       else {
         $job_item->addMessage(
-          t('No existing "@lang" translation found for node "@id".'),
+          'No existing "@lang" translation found for node "@id".',
           array(
             '@lang' => $language,
             '@id' => $id,
-          )
-        );
+          ));
       }
 
     }
     else {
       $job_item->addMessage(
-        t('No existing translations found for node "@id".'),
-        array(
-          '@id' => $id,
-        )
-      );
+        'No existing translations found for node "@id".',
+        array('@id' => $id));
     }
   }
 
@@ -636,12 +630,11 @@ class TmgmtZanataConnector {
       case 201:
         $doc_id = $this->getDocId($job_item);
         $job_item->addMessage(
-          t('Item "@title" sent to Zanata as document "@doc_id".'),
+          'Item "@title" sent to Zanata as document "@doc_id".',
           array(
             '@title' => $job_item->defaultLabel(),
             '@doc_id' => $doc_id,
-          )
-        );
+          ));
         // Add doc_id as remote_identifier_1, full URL as remote_url.
         $job_item->addRemoteMapping(NULL, $doc_id, array(
           'remote_url' => $url,
@@ -651,7 +644,7 @@ class TmgmtZanataConnector {
       case 401:
         $this->showAuthErrorMessage();
         $job_item->addMessage(
-          t('Item "@title" was not successfully sent to Zanata due to an authorization error.'),
+          'Item "@title" was not successfully sent to Zanata due to an authorization error.',
           array(
             '@title' => $job_item->defaultLabel(),
             '@code' => $response->code,
@@ -668,7 +661,7 @@ class TmgmtZanataConnector {
 
       default:
         $job_item->addMessage(
-          t('Item "@title" was not successfully sent to Zanata. Status code: @code.'),
+          'Item "@title" was not successfully sent to Zanata. Status code: @code.',
           array(
             '@title' => $job_item->defaultLabel(),
             '@code' => $response->code,
