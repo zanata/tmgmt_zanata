@@ -538,7 +538,7 @@ class TmgmtZanataConnector {
 
         // TODO use docId when it is being cached
         $job_item->addMessage(
-          'Found existing "@lang" translations for @count of @total strings in "node/@id".',
+          'Existing translations: found "@lang" translations for @count of @total strings in "node/@id".',
           array(
             '@lang' => $language,
             '@count' => count($trans_data_matching_source),
@@ -630,7 +630,7 @@ class TmgmtZanataConnector {
       case 201:
         $doc_id = $this->getDocId($job_item);
         $job_item->addMessage(
-          'Item "@title" sent to Zanata as document "@doc_id".',
+          'Sent document: item "@title" sent to Zanata as document "@doc_id".',
           array(
             '@title' => $job_item->defaultLabel(),
             '@doc_id' => $doc_id,
