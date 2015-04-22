@@ -469,9 +469,8 @@ class TmgmtZanataConnector {
       // Not completely reliable if translations do not follow same sentence or
       // paragraph structure (segments may not line up properly between source
       // and translation).
-      // TODO collapse trailing segments if there are too many, so that the last
-      //      source segment gets all the translations.
-      $data = $this->segmenter->segmentText($data);
+      $source_data = $this->getFlattenedSourceData($job_item);
+      $data = $this->segmenter->segmentTranslations($source_data, $data);
     }
 
     $items = array();
@@ -702,14 +701,7 @@ class TmgmtZanataConnector {
    *         Zanata server
    */
   protected function prepareStrings(TMGMTJobItem $job_item) {
-    $data = array_filter(tmgmt_flatten_data($job_item->getData()),
-                         '_tmgmt_filter_data');
-
-    // The document on Zanata should have the title at the beginning to help
-    // translators understand the context.
-    if (array_key_exists('node_title', $data)) {
-      $data = array('node_title' => $data['node_title']) + $data;
-    }
+    $data = $this->getFlattenedSourceData($job_item);
 
     if ($this->useSegmentation) {
       $data = $this->segmenter->segmentText($data);
@@ -722,6 +714,22 @@ class TmgmtZanataConnector {
     }
 
     return $items;
+  }
+
+  /**
+   * Get flattened, filtered source data for a given job item.
+   */
+  private function getFlattenedSourceData(TMGMTJobItem $job_item) {
+    $data = array_filter(tmgmt_flatten_data($job_item->getData()),
+                         '_tmgmt_filter_data');
+
+    // The document on Zanata should have the title at the beginning to help
+    // translators understand the context.
+    if (array_key_exists('node_title', $data)) {
+      $data = array('node_title' => $data['node_title']) + $data;
+    }
+
+    return $data;
   }
 
   /**
