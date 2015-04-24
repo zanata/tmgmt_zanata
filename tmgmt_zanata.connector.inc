@@ -393,71 +393,69 @@ class TmgmtZanataConnector {
     $is_node = strcmp($job_item->item_type, 'node') === 0;
     $id = $job_item->item_id;
 
-    if ($is_node) {
-      $trans_data = $this->getExistingTransData($job_item);
-      if ($trans_data !== NULL) {
-        $url = $this->getItemTranslationUrl($job_item);
-
-        $data = array(
-          'textFlowTargets' => $this->prepareTargets($trans_data, $job_item),
-        );
-
-        // makes a copy
-        $options = $base_options;
-        $options['data'] = json_encode($data);
-        $response = drupal_http_request($url, $options);
-
-        switch ($response->code) {
-          case 200:
-          case 201:
-            // translations were successfully sent
-            return TRUE;
-
-          case 400:
-            drupal_set_message(
-              t('There was a problem with the request to send existing translations: "@error"',
-                array('@error' => $response->error)),
-              'error',
-              FALSE);
-            return FALSE;
-
-          case 404:
-            $this->showDocumentNotFoundErrorMessage();
-            return FALSE;
-
-          case 401:
-            $this->showAuthErrorMessage();
-            return FALSE;
-
-          case 500:
-          default:
-            drupal_set_message(
-              t('There was a problem sending translations to Zanata. See messages below.'),
-              'warning',
-              FALSE);
-            $job_item->addMessage(
-              'Tried to send existing translations but got response code @code when sending to URL @url.',
-              array(
-                '@code' => $response->code,
-                '@url' => $url));
-            return FALSE;
-        }
-      }
-      else {
-        // no existing translations found. Probably don't need a log message.
-      }
-
-    }
-    else {
+    if (!$is_node) {
       $job_item->addMessage(
         'Item "@id" is not type "node" (is type "@type"), unable to look up translations.',
         array(
           '@id' => $id,
           '@type' => $job_item->item_type,
         ));
+      return FALSE;
     }
 
-    return FALSE;
+    $trans_data = $this->getExistingTransData($job_item);
+
+    if ($trans_data === NULL) {
+      // no existing translations found. Probably don't need a log message.
+      return FALSE;
+    }
+
+    $url = $this->getItemTranslationUrl($job_item);
+
+    $data = array(
+      'textFlowTargets' => $this->prepareTargets($trans_data, $job_item),
+    );
+
+    // makes a copy
+    $options = $base_options;
+    $options['data'] = json_encode($data);
+    $response = drupal_http_request($url, $options);
+
+    switch ($response->code) {
+      case 200:
+      case 201:
+        // translations were successfully sent
+        return TRUE;
+
+      case 400:
+        drupal_set_message(
+          t('There was a problem with the request to send existing translations: "@error"',
+            array('@error' => $response->error)),
+          'error',
+          FALSE);
+        return FALSE;
+
+      case 404:
+        $this->showDocumentNotFoundErrorMessage();
+        return FALSE;
+
+      case 401:
+        $this->showAuthErrorMessage();
+        return FALSE;
+
+      case 500:
+      default:
+        drupal_set_message(
+          t('There was a problem sending translations to Zanata. See messages below.'),
+          'warning',
+          FALSE);
+        $job_item->addMessage(
+          'Tried to send existing translations but got response code @code when sending to URL @url.',
+          array(
+            '@code' => $response->code,
+            '@url' => $url));
+        return FALSE;
+    }
   }
 
   /**
@@ -506,62 +504,70 @@ class TmgmtZanataConnector {
     );
   }
 
+  /**
+   * Find any existing translations for a job item, in the target
+   * language of the job.
+   *
+   * @return array
+   *   Translations with keys that match source keys, or NULL if there are no
+   *   translations of the item in the job's target language.
+   */
   private function getExistingTransData(TMGMTJobItem $job_item) {
     $id = $job_item->item_id;
     $node = node_load($id);
 
     $translations = translation_node_get_translations($node->tnid);
 
-    if ($translations) {
-      $job = $job_item->getJob();
-      $language = $job->target_language;
-      $translated = array_key_exists($language, $translations);
-      if ($translated) {
-        $specific_trans = $translations[$language];
-        $translated_node = node_load($specific_trans->nid);
-
-        $source_data = $this->simplifyStringData($job_item->getData());
-
-        // transform trans data to the same structure as the source data
-        $trans_data = $this->simplifyStringData(
-                        $this->getTransData($translated_node, $language));
-
-        $trans_data_matching_source = array();
-
-        foreach (array_keys($source_data) as $key) {
-          if (array_key_exists($key, $trans_data)) {
-            $trans_value = $trans_data[$key];
-            $trans_data_matching_source[$key] = $trans_value;
-          }
-        }
-
-        // TODO use docId when it is being cached
-        $job_item->addMessage(
-          'Existing translations: found "@lang" translations for @count of @total strings in "node/@id".',
-          array(
-            '@lang' => $language,
-            '@count' => count($trans_data_matching_source),
-            '@total' => count($source_data),
-            '@id' => $id,
-          ));
-
-        return $trans_data_matching_source;
-      }
-      else {
-        $job_item->addMessage(
-          'No existing "@lang" translation found for node "@id".',
-          array(
-            '@lang' => $language,
-            '@id' => $id,
-          ));
-      }
-
-    }
-    else {
+    if (!$translations) {
       $job_item->addMessage(
         'No existing translations found for node "@id".',
         array('@id' => $id));
+      return;
     }
+
+    $job = $job_item->getJob();
+    $language = $job->target_language;
+    $translated = array_key_exists($language, $translations);
+
+    if (!$translated) {
+      $job_item->addMessage(
+        'No existing "@lang" translation found for node "@id".',
+        array(
+          '@lang' => $language,
+          '@id' => $id,
+        ));
+      return;
+    }
+
+    $specific_trans = $translations[$language];
+    $translated_node = node_load($specific_trans->nid);
+
+    $source_data = $this->simplifyStringData($job_item->getData());
+
+    // transform trans data to the same structure as the source data
+    $trans_data = $this->simplifyStringData(
+                    $this->getTransData($translated_node, $language));
+
+    $trans_data_matching_source = array();
+
+    foreach (array_keys($source_data) as $key) {
+      if (array_key_exists($key, $trans_data)) {
+        $trans_value = $trans_data[$key];
+        $trans_data_matching_source[$key] = $trans_value;
+      }
+    }
+
+    // TODO use docId when it is being cached
+    $job_item->addMessage(
+      'Existing translations: found "@lang" translations for @count of @total strings in "node/@id".',
+      array(
+        '@lang' => $language,
+        '@count' => count($trans_data_matching_source),
+        '@total' => count($source_data),
+        '@id' => $id,
+      ));
+
+    return $trans_data_matching_source;
   }
 
   /**
