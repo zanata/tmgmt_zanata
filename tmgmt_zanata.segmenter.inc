@@ -56,6 +56,73 @@ class TmgmtZanataSegmenter {
   }
 
   /**
+   * Segment translations, trying to be consistent with segmentation of the
+   * given source data.
+   *
+   * If the translation data would create more segments than the source data,
+   * the last translation segment will hold all remaining translation text and
+   * will match the ID of the last source segment.
+   */
+  public function segmentTranslations($source_data, $translation_data) {
+    $source_segments = $this->segmentText($source_data);
+    $trans_segments = $this->segmentText($translation_data);
+
+    foreach ($source_data as $source_id => $source_value) {
+      $index = 0;
+      $first_segment_id = $this->segmentId($source_id, $index);
+      // source always has at least one segment
+      $segment_count = $source_segments[$first_segment_id]['segment_count'];
+
+      if (array_key_exists($first_segment_id, $trans_segments)) {
+        $trans_segment = &$trans_segments[$first_segment_id];
+        $trans_segment_count = $trans_segment['segment_count'];
+
+        while ($trans_segment['segment_count'] > $segment_count) {
+          $last_index = $trans_segment['segment_count'] - 1;
+          $previous_index = $last_index - 1;
+          $this->collapseLastSegment($source_id,
+            $trans_segments);
+        }
+      }
+    }
+    return $trans_segments;
+  }
+
+  /**
+   * Merge the last segment for a string into the previous segment.
+   */
+  private function collapseLastSegment($source_id, &$segments) {
+    $first_segment_id = $this->segmentId($source_id, 0);
+    $segment_count = $segments[$first_segment_id]['segment_count'];
+
+    // get a copy of last segment and remove it from segments
+    $last_index = $segment_count - 1;
+    $last_id = $this->segmentId($source_id, $last_index);
+    $last = $segments[$last_id];
+    unset($segments[$last_id]);
+
+    // get a reference to the segment before the last
+    $previous_index = $last_index - 1;
+    $previous_id = $this->segmentId($source_id, $previous_index);
+    $previous = &$segments[$previous_id];
+
+    // add content and intervening skeleton to the segment before the last
+    $previous['#text'] .= $previous['post_skeleton'] . $last['pre_skeleton'] .
+                          $last['#text'];
+
+    // move trailing skeleton part up to the segment before the last
+    $previous['post_skeleton'] = $last['post_skeleton'];
+
+    // update the segment count on all remaining segments of this string
+    $new_segment_count = $segment_count - 1;
+    for ($index = 0; $index < $new_segment_count; $index++) {
+      $id = $this->segmentId($source_id, $index);
+      $segment = &$segments[$id];
+      $segment['segment_count'] = $new_segment_count;
+    }
+  }
+
+  /**
    * Join segmented translations to full translations. Translations with missing
    * segments are not included in returned data.
    *

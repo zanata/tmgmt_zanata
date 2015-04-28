@@ -9,8 +9,6 @@
  */
 class TmgmtZanataConnector {
 
-  // const SEGMENT_PREFIX = '-segment-';
-
   private $useSegmentation;
 
   private $segmenter;
@@ -101,7 +99,7 @@ class TmgmtZanataConnector {
    *         given locale.
    */
   private function getItemTranslationUrl(TMGMTJobItem $job_item) {
-    return $this->getItemUrl($job_item) . '/translations/' . $this->getLocale();
+    return $this->getItemUrl($job_item) . '/translations/' . $this->getLocale() . '?ext=comment';
   }
 
   /**
@@ -163,10 +161,7 @@ class TmgmtZanataConnector {
           break;
 
         case 401:
-          drupal_set_message(
-            t('There was an authorization problem, please check your username and API key in the translator configuration.'),
-            'warning',
-            FALSE);
+          $this->showAuthErrorMessage();
           break;
 
         case 404:
@@ -179,7 +174,7 @@ class TmgmtZanataConnector {
             'warning',
             FALSE);
           $job_item->addMessage(
-            t('Tried to update translations but got response  code @code when fetching URL @url.'),
+            'Tried to update translations but got response  code @code when fetching URL @url.',
             array(
               '@code' => $response->code,
               '@url' => $url));
@@ -188,7 +183,7 @@ class TmgmtZanataConnector {
     }
 
     if ($count_items_with_changes === 0) {
-      $job->addMessage(t('Checked for translations. No new translations were available.'));
+      $job->addMessage('Checked for translations. No new translations were available.');
     }
     else {
       $job->addMessage(format_plural($count_items_with_changes,
@@ -337,8 +332,13 @@ class TmgmtZanataConnector {
    */
   public function requestTranslation($skip_submitted = TRUE) {
     $all_submissions_worked = TRUE;
+    $sent_translations_for_how_many = 0;
     $base_options = $this->getBaseOptions();
     $base_options['method'] = 'PUT';
+
+    // TODO record successful translation submission and skip it next time
+    //      (may already be handled with the submitted check, but don't want
+    //      failed translation send to cause re-send of source).
 
     foreach ($this->job->getItems() as $job_item) {
       if ($skip_submitted) {
@@ -353,6 +353,11 @@ class TmgmtZanataConnector {
 
       $submitted = $this->requestItemTranslation($job_item, $base_options);
       $all_submissions_worked = $submitted && $all_submissions_worked;
+
+      $translation_submitted = $this->sendExistingTranslation($job_item, $base_options);
+      if ($translation_submitted) {
+        $sent_translations_for_how_many++;
+      }
     }
 
     if ($all_submissions_worked) {
@@ -362,9 +367,236 @@ class TmgmtZanataConnector {
     else {
       // TODO include count of failed items.
       $this->job->addMessage(
-        t('One or more items were not successfully sent to Zanata. Try again after correcting the problem items.'),
+        'One or more items were not successfully sent to Zanata. Try again after correcting the problem items.',
         array(), 'error');
     }
+
+    $this->job->addMessage(
+      'Sent existing translations for @sent of @total nodes.',
+        array(
+          '@sent' => $sent_translations_for_how_many,
+          '@total' => count($this->job->getItems())
+        ));
+  }
+
+
+  /**
+   * Check for existing translations to send for a job item, and send them if
+   * they are found.
+   *
+   * @return bool
+   *   TRUE if the translation was submitted successfully, FALSE otherwise
+   */
+  private function sendExistingTranslation(TMGMTJobItem $job_item, $base_options) {
+    // FIXME this check may not be necessary, but keep it for now until it is
+    //       clear what an item type can be other than node.
+    $is_node = strcmp($job_item->item_type, 'node') === 0;
+    $id = $job_item->item_id;
+
+    if (!$is_node) {
+      $job_item->addMessage(
+        'Item "@id" is not type "node" (is type "@type"), unable to look up translations.',
+        array(
+          '@id' => $id,
+          '@type' => $job_item->item_type,
+        ));
+      return FALSE;
+    }
+
+    $trans_data = $this->getExistingTransData($job_item);
+
+    if ($trans_data === NULL) {
+      // no existing translations found. Probably don't need a log message.
+      return FALSE;
+    }
+
+    $url = $this->getItemTranslationUrl($job_item);
+
+    $data = array(
+      'textFlowTargets' => $this->prepareTargets($trans_data, $job_item),
+    );
+
+    // makes a copy
+    $options = $base_options;
+    $options['data'] = json_encode($data);
+    $response = drupal_http_request($url, $options);
+
+    switch ($response->code) {
+      case 200:
+      case 201:
+        // translations were successfully sent
+        return TRUE;
+
+      case 400:
+        drupal_set_message(
+          t('There was a problem with the request to send existing translations: "@error"',
+            array('@error' => $response->error)),
+          'error',
+          FALSE);
+        return FALSE;
+
+      case 404:
+        $this->showDocumentNotFoundErrorMessage();
+        return FALSE;
+
+      case 401:
+        $this->showAuthErrorMessage();
+        return FALSE;
+
+      case 500:
+      default:
+        drupal_set_message(
+          t('There was a problem sending translations to Zanata. See messages below.'),
+          'warning',
+          FALSE);
+        $job_item->addMessage(
+          'Tried to send existing translations but got response code @code when sending to URL @url.',
+          array(
+            '@code' => $response->code,
+            '@url' => $url));
+        return FALSE;
+    }
+  }
+
+  /**
+   * $data should be an already filtered and flattened array of translations
+   *       that all have an id matching a source string id.
+   */
+  private function prepareTargets($data, $job_item) {
+    if ($this->useSegmentation) {
+      // Not completely reliable if translations do not follow same sentence or
+      // paragraph structure (segments may not line up properly between source
+      // and translation).
+      $source_data = $this->getFlattenedSourceData($job_item);
+      $data = $this->segmenter->segmentTranslations($source_data, $data);
+    }
+
+    $items = array();
+    $document = $this->getDocId($job_item);
+    foreach ($data as $key => $value) {
+      $text = $value['#text'];
+      $items[] = $this->createTranslationItem($key, $text, $document);
+    }
+
+    return $items;
+  }
+
+  /**
+   * Create an associative array for a translation item ready for JSON
+   * encoding. The format is suitable for the Zanata server.
+   *
+   * This is for sending existing translations to Zanata.
+   */
+  private function createTranslationItem($id, $text, $document) {
+    return array(
+      'resId' => $id,
+      'state' => 'NeedReview',
+      'content' => $text,
+      'extensions' => array(
+        array(
+          "object-type" => "comment",
+          "space" => "preserve",
+          "value" => "Translation sent by tmgmt-zanata because it matches id \"$id\" in document \"$document\"."
+        ),
+      ),
+      'revision' => 1,
+      'textFlowRevision' => 1,
+    );
+  }
+
+  /**
+   * Find any existing translations for a job item, in the target
+   * language of the job.
+   *
+   * @return array
+   *   Translations with keys that match source keys, or NULL if there are no
+   *   translations of the item in the job's target language.
+   */
+  private function getExistingTransData(TMGMTJobItem $job_item) {
+    $id = $job_item->item_id;
+    $node = node_load($id);
+
+    $translations = translation_node_get_translations($node->tnid);
+
+    if (!$translations) {
+      $job_item->addMessage(
+        'No existing translations found for node "@id".',
+        array('@id' => $id));
+      return;
+    }
+
+    $job = $job_item->getJob();
+    $language = $job->target_language;
+    $translated = array_key_exists($language, $translations);
+
+    if (!$translated) {
+      $job_item->addMessage(
+        'No existing "@lang" translation found for node "@id".',
+        array(
+          '@lang' => $language,
+          '@id' => $id,
+        ));
+      return;
+    }
+
+    $specific_trans = $translations[$language];
+    $translated_node = node_load($specific_trans->nid);
+
+    $source_data = $this->simplifyStringData($job_item->getData());
+
+    // transform trans data to the same structure as the source data
+    $trans_data = $this->simplifyStringData(
+                    $this->getTransData($translated_node, $language));
+
+    $trans_data_matching_source = array();
+
+    foreach (array_keys($source_data) as $key) {
+      if (array_key_exists($key, $trans_data)) {
+        $trans_value = $trans_data[$key];
+        $trans_data_matching_source[$key] = $trans_value;
+      }
+    }
+
+    // TODO use docId when it is being cached
+    $job_item->addMessage(
+      'Existing translations: found "@lang" translations for @count of @total strings in "node/@id".',
+      array(
+        '@lang' => $language,
+        '@count' => count($trans_data_matching_source),
+        '@total' => count($source_data),
+        '@id' => $id,
+      ));
+
+    return $trans_data_matching_source;
+  }
+
+  /**
+   * Convert source or translation strings to a simple array that has only the
+   * translatable fields.
+   */
+  private function simplifyStringData($data) {
+    $flat_data = tmgmt_flatten_data($data);
+    return array_filter($flat_data, '_tmgmt_filter_data');
+  }
+
+  /**
+   * Get fields for a translated node, in the same structure as the source data.
+   *
+   * Does this need to look up the translated node instead?
+   *
+   * Based on TMGMTNodeSourcePluginController::getData()
+   */
+  private function getTransData($translated_node, $target_language) {
+    $node = $translated_node;
+    $type = node_type_get_type($node);
+    // $target_language = $job_item->getJob()->target_language;
+
+    // Get all the fields that can be translated and arrange their values into
+    // a specific structure.
+    $structure = tmgmt_field_get_source_data('node', $node, $target_language);
+    $structure['node_title']['#label'] = $type->title_label;
+    $structure['node_title']['#text'] = $node->title;
+    return $structure;
   }
 
   /**
@@ -403,12 +635,11 @@ class TmgmtZanataConnector {
       case 201:
         $doc_id = $this->getDocId($job_item);
         $job_item->addMessage(
-          t('Item "@title" sent to Zanata as document "@doc_id".'),
+          'Sent document: item "@title" sent to Zanata as document "@doc_id".',
           array(
             '@title' => $job_item->defaultLabel(),
             '@doc_id' => $doc_id,
-          )
-        );
+          ));
         // Add doc_id as remote_identifier_1, full URL as remote_url.
         $job_item->addRemoteMapping(NULL, $doc_id, array(
           'remote_url' => $url,
@@ -416,26 +647,57 @@ class TmgmtZanataConnector {
         return TRUE;
 
       case 401:
-        drupal_set_message(t('There was an authorization problem, please check your username and API key in the translator configuration.'),
-                             'error',
-                             FALSE);
+        $this->showAuthErrorMessage();
         $job_item->addMessage(
-          t('Item "@title" was not successfully sent to Zanata due to an authorization error.'),
+          'Item "@title" was not successfully sent to Zanata due to an authorization error.',
           array(
             '@title' => $job_item->defaultLabel(),
             '@code' => $response->code,
           ), 'error');
         return FALSE;
 
+      case 403:
+        $this->showPermissionErrorMessage();
+        return FALSE;
+
+      case 404:
+        $this->showNotFoundErrorMessage();
+        return FALSE;
+
       default:
         $job_item->addMessage(
-          t('Item "@title" was not successfully sent to Zanata. Status code: @code.'),
+          'Item "@title" was not successfully sent to Zanata. Status code: @code.',
           array(
             '@title' => $job_item->defaultLabel(),
             '@code' => $response->code,
           ), 'error');
         return FALSE;
     }
+  }
+
+  private function showNotFoundErrorMessage() {
+    drupal_set_message(t('The configured project or version does not exist on Zanata, please check that the project slug and version slug in the translator configuration match a project-version on Zanata.'),
+                         'error',
+                         FALSE);
+  }
+
+  private function showDocumentNotFoundErrorMessage($document) {
+    drupal_set_message(t('The configured project or version does not exist on Zanata, or there is no document matching "@document". Please check that the project slug and version slug in the translator configuration match a project-version on Zanata, and try to re-send the documents.',
+                         array('@document' => $document)),
+                       'error',
+                       FALSE);
+  }
+
+  private function showAuthErrorMessage() {
+    drupal_set_message(t('There was an authorization problem, please check your username and API key in the translator configuration.'),
+                         'error',
+                         FALSE);
+  }
+
+  private function showPermissionErrorMessage() {
+    drupal_set_message(t('There was a permission problem, please check that the correct project-version and user are specified in the translator configuration, that the user is a maintainer of the project, and that the project-version is not read-only.'),
+                         'error',
+                         FALSE);
   }
 
   /**
@@ -445,14 +707,7 @@ class TmgmtZanataConnector {
    *         Zanata server
    */
   protected function prepareStrings(TMGMTJobItem $job_item) {
-    $data = array_filter(tmgmt_flatten_data($job_item->getData()),
-                         '_tmgmt_filter_data');
-
-    // The document on Zanata should have the title at the beginning to help
-    // translators understand the context.
-    if (array_key_exists('node_title', $data)) {
-      $data = array('node_title' => $data['node_title']) + $data;
-    }
+    $data = $this->getFlattenedSourceData($job_item);
 
     if ($this->useSegmentation) {
       $data = $this->segmenter->segmentText($data);
@@ -465,6 +720,22 @@ class TmgmtZanataConnector {
     }
 
     return $items;
+  }
+
+  /**
+   * Get flattened, filtered source data for a given job item.
+   */
+  private function getFlattenedSourceData(TMGMTJobItem $job_item) {
+    $data = array_filter(tmgmt_flatten_data($job_item->getData()),
+                         '_tmgmt_filter_data');
+
+    // The document on Zanata should have the title at the beginning to help
+    // translators understand the context.
+    if (array_key_exists('node_title', $data)) {
+      $data = array('node_title' => $data['node_title']) + $data;
+    }
+
+    return $data;
   }
 
   /**
