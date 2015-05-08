@@ -173,11 +173,7 @@ class TmgmtZanataConnector {
             t('There was a problem fetching translations from the service. See messages below.'),
             'warning',
             FALSE);
-          $job_item->addMessage(
-            'Tried to update translations but got response  code @code when fetching URL @url.',
-            array(
-              '@code' => $response->code,
-              '@url' => $url));
+          $this->addPollTranslationErrorToItem($job_item, $response, $url);
           break;
       }
     }
@@ -192,6 +188,29 @@ class TmgmtZanataConnector {
         array(
           '@new_translations' => $count_strings_changed
         )));
+    }
+  }
+
+  /**
+   * Add a message to a job item with detail of a failed translation poll.
+   */
+  private function addPollTranslationErrorToItem(TMGMTJobItem $job_item, $response, $url) {
+    if (isset($response->error)) {
+      $job_item->addMessage(
+        'Tried to update translations but got response code @code when fetching URL @url. Error message: "@error".',
+        array(
+          '@code' => $response->code,
+          '@url' => $url,
+          '@error' => $response->error,
+        ));
+    }
+    else {
+      $job_item->addMessage(
+        'Tried to update translations but got response code @code when fetching URL @url.',
+        array(
+          '@code' => $response->code,
+          '@url' => $url,
+        ));
     }
   }
 
@@ -449,12 +468,28 @@ class TmgmtZanataConnector {
           t('There was a problem sending translations to Zanata. See messages below.'),
           'warning',
           FALSE);
-        $job_item->addMessage(
-          'Tried to send existing translations but got response code @code when sending to URL @url.',
-          array(
-            '@code' => $response->code,
-            '@url' => $url));
+        $this->addSendTranslationsErrorToItem($job_item, $response, $url);
         return FALSE;
+    }
+  }
+
+  private function addSendTranslationsErrorToItem(TMGMTJobItem $job_item, $response, $url) {
+    if (isset($response->error)) {
+      $job_item->addMessage(
+        'Tried to send existing translations but got response code @code when sending to URL @url. Error: "@error"',
+        array(
+          '@code' => $response->code,
+          '@url' => $url,
+          '@error' => $response->error,
+        ));
+    }
+    else {
+      $job_item->addMessage(
+        'Tried to send existing translations but got response code @code when sending to URL @url.',
+        array(
+          '@code' => $response->code,
+          '@url' => $url,
+        ));
     }
   }
 
@@ -665,13 +700,28 @@ class TmgmtZanataConnector {
         return FALSE;
 
       default:
-        $job_item->addMessage(
-          'Item "@title" was not successfully sent to Zanata. Status code: @code.',
-          array(
-            '@title' => $job_item->defaultLabel(),
-            '@code' => $response->code,
-          ), 'error');
+        $this->addSendSourceErrorToItem($job_item, $response);
         return FALSE;
+    }
+  }
+
+  private function addSendSourceErrorToItem(TMGMTJobItem $job_item, $response) {
+    if (isset($response->error)) {
+      $job_item->addMessage(
+        'Item "@title" was not successfully sent to Zanata. Status code: @code. Error: "@error"',
+        array(
+          '@title' => $job_item->defaultLabel(),
+          '@code' => $response->code,
+          '@error' => $response->error,
+        ), 'error');
+    }
+    else {
+      $job_item->addMessage(
+        'Item "@title" was not successfully sent to Zanata. Status code: @code.',
+        array(
+          '@title' => $job_item->defaultLabel(),
+          '@code' => $response->code,
+        ), 'error');
     }
   }
 
