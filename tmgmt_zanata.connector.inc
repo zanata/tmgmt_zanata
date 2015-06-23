@@ -455,7 +455,7 @@ class TmgmtZanataConnector {
         return FALSE;
 
       case 404:
-        $this->showDocumentNotFoundErrorMessage();
+        $this->showDocumentNotFoundErrorMessage($this->getDocId($job_item));
         return FALSE;
 
       case 401:
