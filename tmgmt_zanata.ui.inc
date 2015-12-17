@@ -23,7 +23,7 @@ class TMGMTZanataTranslatorUIController extends TMGMTDefaultTranslatorUIControll
     $form['server'] = array(
       // TODO check whether there is a specific type for URLs.
       '#type' => 'textfield',
-      '#title' => t('Zanata server URL'),
+      '#title' => t('Zanata Server URL'),
       '#description' => t(
         'Base URL for the Zanata server. This should not include a / at the end, for example, http://translate.zanata.org/zanata'),
       '#size' => 120,
@@ -32,7 +32,7 @@ class TMGMTZanataTranslatorUIController extends TMGMTDefaultTranslatorUIControll
     );
     $form['username'] = array(
       '#type' => 'textfield',
-      '#title' => t('username'),
+      '#title' => t('Zanata Username'),
       '#description' => t('Your username on Zanata.'),
       '#size' => 20,
       '#maxlength' => 20,
@@ -40,7 +40,7 @@ class TMGMTZanataTranslatorUIController extends TMGMTDefaultTranslatorUIControll
     );
     $form['api_key'] = array(
       '#type' => 'textfield',
-      '#title' => t('API key'),
+      '#title' => t('Zanata API Key'),
       '#description' => t(
         'Your API key on Zanata, found in the "Client" section of your user settings (via the dashboard).'),
       '#size' => 32,
@@ -64,6 +64,13 @@ class TMGMTZanataTranslatorUIController extends TMGMTDefaultTranslatorUIControll
       '#size' => 40,
       '#maxlength' => 40,
       '#default_value' => $translator->getSetting('version'),
+    );
+    $form['transcheck'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Translation Periodic Check'),
+      '#description' => t(
+        'Pull translations delta automatically.'),
+      '#default_value' => $translator->getSetting('transcheck'),
     );
     $form['segmentation'] = array(
       '#type' => 'select',
