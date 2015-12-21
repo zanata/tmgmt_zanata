@@ -69,7 +69,7 @@ class TMGMTZanataTranslatorUIController extends TMGMTDefaultTranslatorUIControll
       '#type' => 'checkbox',
       '#title' => t('Translation Periodic Check'),
       '#description' => t(
-        'Pull translations delta automatically.'),
+        'Automatically fetch new translations every time cron runs.'),
       '#default_value' => $translator->getSetting('transcheck'),
     );
     $form['segmentation'] = array(
