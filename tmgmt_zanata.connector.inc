@@ -9,6 +9,9 @@
  */
 class TmgmtZanataConnector {
 
+  // docId is stored in a varchar(255) in the Zanata database
+  const MAX_DOCID_LENGTH = 255;
+
   private $useSegmentation;
 
   private $segmenter;
@@ -78,7 +81,38 @@ class TmgmtZanataConnector {
    *   the unencoded document id on Zanata for the given job item
    */
   private function getDocId($job_item) {
-    return "{$job_item->item_type}/{$job_item->item_id}";
+    $id = $job_item->item_id;
+    $type = $job_item->item_type;
+
+    // returns an associative array with id as key
+    $entity = entity_load($type, array($id))[$id];
+    $label = entity_label($type, $entity);
+
+    if ($label) {
+      // Some characters are not supported in docId for Zanata, so these are
+      // replaced with '_'.
+      $label = strtr($label,
+        ' ,.!?@+#$%^&*()[]{}<>`\'"\\|/;:~',
+        '________________________________');
+
+      // Leading underscores and dashes could cause the meaningful part of the
+      // name to be lost if it is too long. Remove them.
+      $label = ltrim($label, '_-');
+
+      // Only use label if it has not all been trimmed away
+      if (strlen($label) > 0) {
+        $doc_id = "{$type}/{$id}/{$label}";
+        $doc_id =
+          truncate_utf8($doc_id, TmgmtZanataConnector::MAX_DOCID_LENGTH, FALSE);
+        // Zanata breaks if a doc id ends with _ or -
+        $doc_id = rtrim($doc_id, '_-');
+
+        return $doc_id;
+      }
+    }
+
+    // Assumption: this will never be as long as MAX_DOCID_LENGTH
+    return "{$type}/{$id}";
   }
 
   /**
@@ -88,8 +122,10 @@ class TmgmtZanataConnector {
    *   the REST URL for the given job item
    */
   private function getItemUrl(TMGMTJobItem $job_item) {
-    $encoded_id = strtr($this->getDocId($job_item), '/', ',');
-    return "{$this->getBaseUrl()}/{$encoded_id}";
+    $doc_id = $this->getDocId($job_item);
+    // Zanata requires '/' to be replaced with ','.
+    $encoded_doc_id = strtr($doc_id, '/', ',');
+    return "{$this->getBaseUrl()}/{$encoded_doc_id}";
   }
 
   /**
@@ -455,7 +491,7 @@ class TmgmtZanataConnector {
         return FALSE;
 
       case 404:
-        $this->showDocumentNotFoundErrorMessage();
+        $this->showDocumentNotFoundErrorMessage($this->getDocId($job_item));
         return FALSE;
 
       case 401:
