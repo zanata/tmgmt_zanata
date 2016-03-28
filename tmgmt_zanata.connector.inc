@@ -85,7 +85,8 @@ class TmgmtZanataConnector {
     $type = $job_item->item_type;
 
     // returns an associative array with id as key
-    $entity = entity_load($type, array($id))[$id];
+    $loaded_entity = entity_load($type, array($id));
+    $entity = $loaded_entity[$id];
     $label = entity_label($type, $entity);
 
     if ($label) {
