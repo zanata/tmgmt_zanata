@@ -72,6 +72,26 @@ class TMGMTZanataTranslatorUIController extends TMGMTDefaultTranslatorUIControll
         'Automatically fetch new translations every time cron runs.'),
       '#default_value' => $translator->getSetting('transcheck'),
     );
+    $form['emailnotification'] = array(
+        '#type' => 'checkbox',
+        '#title' => t('Send an email when a job is created'),
+        '#description' => t(
+            'Automatically send an email every time job is created.'),
+        '#default_value' => $translator->getSetting('emailnotification'),
+    );
+    $form['emailaddress'] = array(
+        '#type' => 'textfield',
+        '#title' => t('Email address to send to when a job is created'),
+        '#states' => array(
+            "visible" => array(
+                "input[name='emailnotification']" => array("checked" => TRUE)),
+        ),
+        '#description' => t(
+            'Notification will be posted to this email address when a job is created.'),
+        '#size' => 50,
+        '#maxlength' => 50,
+        '#default_value' => $translator->getSetting('emailaddress'),
+    );
     $form['segmentation'] = array(
       '#type' => 'select',
       '#title' => t('Segmentation'),
