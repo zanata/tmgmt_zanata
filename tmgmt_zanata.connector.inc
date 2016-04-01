@@ -445,11 +445,11 @@ class TmgmtZanataConnector {
         t('All items have been submitted to Zanata for translation.'));
 
       // Send email notification
-      $notificationEmail = $this->job->getTranslator()->getSetting('emailaddress');
+      $notificationEmail = $this->job->getTranslator()->getSetting('group1')['emailaddress'];
       $emailSubject = 'Translation job submitted to Zanata for locale: '.$this->getLocale();
       $body = $this->formatEmailBody($email_contents);
 
-      if ($this->job->getTranslator()->getSetting('emailnotification') and $notificationEmail){
+      if ($this->job->getTranslator()->getSetting('group1')['emailnotification'] and $notificationEmail){
         $this->send_drupal_mail('default_from', $notificationEmail, $emailSubject, $body);
       }
     }
@@ -879,11 +879,15 @@ class TmgmtZanataConnector {
    * Function to format notification email body
    */
   private function formatEmailBody($email_contents, $type='PLAIN'){
+    $title = drupal_get_title();
+    $site_name = variable_get('site_name', "Drupal");
+    $page_title = $title." | ".$site_name;
+    $msg = "A translation job has been submitted to Zanata from '".$page_title."'. Details:";
     if ($type === 'HTML') {
       $msgBody = "<html><body>";
       $msgBody .= "<h3>Hello,</h3>";
       $msgBody .= "<br/><br/>";
-      $msgBody .= "A translation job has been submitted to Zanata. Details:";
+      $msgBody .= $msg;
       $msgBody .= "<br/>";
       $msgBody .= "Locale: ".$this->getLocale();
       $msgBody .= "<br/>";
@@ -910,7 +914,7 @@ class TmgmtZanataConnector {
     }
     else {
       $msgBody = "Hello,\n\n";
-      $msgBody .= "A translation job has been submitted to Zanata. Details:\n";
+      $msgBody .= $msg."\n";
       $msgBody .= "Locale: ".$this->getLocale()."\n\n";
       $msgBody .= "Documents...\n\n";
       foreach ($email_contents as $content) {
