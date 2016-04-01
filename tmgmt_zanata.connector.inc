@@ -898,8 +898,8 @@ class TmgmtZanataConnector {
         $msgBody .= "<tr>";
         $msgBody .= "<td>" . $content['docTitle'] . "</td>";
         $msgBody .= "<td>" . $content['docName'] . "</td>";
-        $msgBody .= "<td>" . $content['zanataURL'] . "</td>";
-        $msgBody .= "<td>" . $content['drupalURL'] . "</td>";
+        $msgBody .= "<td><a href=\"" . $content['zanataURL'] . "\">translate in Zanata</a></td>";
+        $msgBody .= "<td><a href=\"" . $content['drupalURL'] . "\">view source document</a></td>";
         $msgBody .= "</tr>";
       }
 
