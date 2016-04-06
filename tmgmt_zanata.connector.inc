@@ -420,7 +420,8 @@ class TmgmtZanataConnector {
 
       $docNode = $job_item->item_type.'/'.$job_item->item_id;
       $docTitle = $job_item->data['node_title']['#text'];
-      $docTitleWithUnderscore = str_replace(' ', '_', $docTitle);
+      $filter_chars = array(' ', '.');
+      $docTitleWithUnderscore = str_replace($filter_chars, '_', $docTitle);
       $docName = $docNode.'/'.$docTitleWithUnderscore;
 
       $docDetails = array(
@@ -445,11 +446,11 @@ class TmgmtZanataConnector {
         t('All items have been submitted to Zanata for translation.'));
 
       // Send email notification
-      $notificationEmail = $this->job->getTranslator()->getSetting('group1')['emailaddress'];
+      $notificationEmail = $this->job->getTranslator()->getSetting('email')['address'];
       $emailSubject = 'Translation job submitted to Zanata for locale: '.$this->getLocale();
       $body = $this->formatEmailBody($email_contents);
 
-      if ($this->job->getTranslator()->getSetting('group1')['emailnotification'] and $notificationEmail){
+      if ($this->job->getTranslator()->getSetting('email')['notification'] and $notificationEmail){
         $this->send_drupal_mail('default_from', $notificationEmail, $emailSubject, $body);
       }
     }
