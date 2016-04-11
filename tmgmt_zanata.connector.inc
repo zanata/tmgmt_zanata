@@ -446,11 +446,12 @@ class TmgmtZanataConnector {
         t('All items have been submitted to Zanata for translation.'));
 
       // Send email notification
-      $notificationEmail = $this->job->getTranslator()->getSetting('email')['address'];
+      $emailSettings = $this->job->getTranslator()->getSetting('email');
+      $notificationEmail = $emailSettings['address'];
       $emailSubject = 'Translation job submitted to Zanata for locale: '.$this->getLocale();
       $body = $this->formatEmailBody($email_contents);
 
-      if ($this->job->getTranslator()->getSetting('email')['notification'] and $notificationEmail){
+      if ($emailSettings['notification'] and $notificationEmail){
         $this->send_drupal_mail('default_from', $notificationEmail, $emailSubject, $body);
       }
     }

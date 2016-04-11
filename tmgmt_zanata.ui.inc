@@ -78,12 +78,13 @@ class TMGMTZanataTranslatorUIController extends TMGMTDefaultTranslatorUIControll
         '#collapsible' => FALSE,
         '#collapsed' => FALSE,
     );
+    $emailSettings = $translator->getSetting('email');
     $form['email']['notification'] = array(
         '#type' => 'checkbox',
         '#title' => t('Send an email when a job is created'),
         '#description' => t(
             'The email shows the requested language, and a list of documents with links to view the source and translations.'),
-        '#default_value' => $translator->getSetting('email')['notification'],
+        '#default_value' => $emailSettings['notification'],
     );
     $form['email']['address'] = array(
         '#type' => 'textfield',
@@ -96,7 +97,7 @@ class TMGMTZanataTranslatorUIController extends TMGMTDefaultTranslatorUIControll
             'Notification will be posted to this email address when a job is created.'),
         '#size' => 50,
         '#maxlength' => 50,
-        '#default_value' => $translator->getSetting('email')['address'],
+        '#default_value' => $emailSettings['address'],
     );
     $form['segmentation'] = array(
       '#type' => 'select',
