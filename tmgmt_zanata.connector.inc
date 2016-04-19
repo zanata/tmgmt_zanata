@@ -423,11 +423,11 @@ class TmgmtZanataConnector {
       $filter_chars = array(' ', '.');
       $docTitleWithUnderscore = str_replace($filter_chars, '_', $docTitle);
       $docName = $docNode.'/'.$docTitleWithUnderscore;
-
+      global $base_url;
       $docDetails = array(
         'docTitle' => $docTitle, 'docName' => $docName,
         'zanataURL' => $this->getDocEditorUrl($docName),
-        'drupalURL' => $_SERVER['RUNSERVER_BASE_URL'].'/'.$docNode
+        'drupalURL' => $base_url.'/'.$docNode
       );
 
       array_push($email_contents, $docDetails);
