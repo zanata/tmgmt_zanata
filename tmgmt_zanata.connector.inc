@@ -70,8 +70,8 @@ class TmgmtZanataConnector {
    * This will be the URL to the document in the editor, ready for a node
    * to be translated.
    */
-  public function getDocEditorUrl($docName) {
-    return $this->getEditorUrl().'#view:doc;doc:'.$docName;
+  public function getDocEditorUrl($job_item) {
+    return $this->getEditorUrl().'#view:doc;doc:'.$this->getDocId($job_item);
   }
 
   /**
@@ -421,13 +421,10 @@ class TmgmtZanataConnector {
 
       $docNode = $job_item->item_type.'/'.$job_item->item_id;
       $docTitle = $job_item->data['node_title']['#text'];
-      $filter_chars = array(' ', '.');
-      $docTitleWithUnderscore = str_replace($filter_chars, '_', $docTitle);
-      $docName = $docNode.'/'.$docTitleWithUnderscore;
       global $base_url;
       $docDetails = array(
-        'docTitle' => $docTitle, 'docName' => $docName,
-        'zanataURL' => $this->getDocEditorUrl($docName),
+        'docTitle' => $docTitle, 'docName' => $this->getDocId($job_item),
+        'zanataURL' => $this->getDocEditorUrl($job_item),
         'drupalURL' => $base_url.'/'.$docNode
       );
 
