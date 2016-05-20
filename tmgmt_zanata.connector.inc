@@ -85,6 +85,17 @@ class TmgmtZanataConnector {
   }
 
   /**
+   * Generate file upload URL for HTML documents
+   *
+   * @return string
+   *   the base REST URL to upload documents
+   */
+  private function getFileUploadUrl($job_item) {
+    return "{$this->serverUrl}/rest/file/source/{$this->projectId}/"
+    . "{$this->versionId}?docId=".$this->getDocId($job_item);
+  }
+
+  /**
    * Generate a document ID for a given job item.
    *
    * @return string
@@ -717,6 +728,17 @@ class TmgmtZanataConnector {
     // Makes a copy.
     $options = $base_options;
 
+    // check and set html flag
+    $html_segmentation_setting =
+        $this->translator->getSetting('segmentation') === 'HTML';
+
+    // locate node content format in tmgmt job
+    $node_content_format = $job_item->data['body'][0]['format']['#text'];
+    $html_content = strstr($node_content_format, 'html');
+
+    $html_flag = $html_segmentation_setting and $html_content;
+
+
     $common_data = array(
       // Required.
       'contentType' => 'text/plain',
@@ -729,9 +751,15 @@ class TmgmtZanataConnector {
     );
     $data = $common_data;
 
-    $data['textFlows'] = $this->prepareStrings($job_item);
+    $data['textFlows'] = $this->prepareStrings($job_item, $html_flag);
 
-    $options['data'] = json_encode($data);
+    if (!$html_flag) {
+      $options['data'] = json_encode($data);
+    } else {
+      $options['data'] = $data['textFlows'];
+      $url = $this->getFileUploadUrl($job_item);
+      $options = $this->handleFileUpload($options);
+    }
 
     /* TODO consider copytrans */
 
@@ -775,6 +803,54 @@ class TmgmtZanataConnector {
         $this->addSendSourceErrorToItem($job_item, $response);
         return FALSE;
     }
+  }
+
+  private function handleFileUpload($options) {
+    $boundary = md5(uniqid());
+
+    // modify header params
+    $options['method'] = 'POST';
+    $options['headers']['Accept'] = "application/xml";
+    $options['headers']['Content-Type'] = "multipart/form-data; charset=utf-8; boundary=$boundary";
+
+    $post_data = array(
+      'file' => $options['data'],
+      'first' => 'true',
+      'last' => 'true',
+      'type' => 'HTML',
+      'hash' => md5($options['data']),
+    );
+
+    $options['data'] = $this->multipart_encode($boundary, $post_data);
+    return $options;
+  }
+
+  // Function to encode text data.
+  function multipart_enc_text($name, $value){
+    return "Content-Disposition: form-data; name=\"$name\"\n\n$value\n";
+  }
+
+  // Function to multipart encode a html.
+  private function multipart_enc_html($contents){
+    $mimetype = "text/html";
+    $data = "Content-Disposition: form-data; name=\"file\" \n"; // "file" key.
+    $data .= "Content-Transfer-Encoding: UTF-8\n";
+    $data .= "Content-Type: $mimetype\n\n";
+    $data .= $contents . "\n";
+    return $data;
+  }
+
+  // base function to encode a data array.
+  private function multipart_encode($boundary, $params){
+    $output = "";
+    foreach ($params as $key => $value){
+      $output .= "--$boundary\r\n";
+      if ($key == 'file'){
+        $output .= $this->multipart_enc_html ($value);
+      } else $output .= $this->multipart_enc_text ($key, $value);
+    }
+    $output .="--$boundary--";
+    return $output;
   }
 
   private function addSendSourceErrorToItem(TMGMTJobItem $job_item, $response) {
@@ -828,11 +904,19 @@ class TmgmtZanataConnector {
    * @return an array of text flow arrays ready to encode as JSON and send to
    *         Zanata server
    */
-  protected function prepareStrings(TMGMTJobItem $job_item) {
+  protected function prepareStrings(TMGMTJobItem $job_item, $html_seg_flag) {
     $data = $this->getFlattenedSourceData($job_item);
 
     if ($this->useSegmentation) {
       $data = $this->segmenter->segmentText($data);
+    }
+
+    if ($html_seg_flag) {
+      foreach ($data as $key => $value) {
+        if ($value['#label'] === 'Body') {
+          return $value['#text'];
+        }
+      }
     }
 
     $items = array();
