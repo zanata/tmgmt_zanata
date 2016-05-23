@@ -25,6 +25,7 @@ class TmgmtZanataConnector {
   private $job;
   private $translator;
   private $controller;
+  private $notification;
 
   /**
    * Create a new connector for the given job.
@@ -45,7 +46,7 @@ class TmgmtZanataConnector {
     $this->useSegmentation = $segmentation != 'NONE';
     // TODO only create if $useSegmentation
     $this->segmenter = new TmgmtZanataSegmenter($segmentation);
-
+    $this->notification = new TMGMTZanataTranslatorNotification();
 
     $this->job = $job;
     $this->translator = $translator;
@@ -69,8 +70,8 @@ class TmgmtZanataConnector {
    * This will be the URL to the document in the editor, ready for a node
    * to be translated.
    */
-  public function getDocEditorUrl($docName) {
-    return $this->getEditorUrl().'#view:doc;doc:'.$docName;
+  public function getDocEditorUrl($job_item) {
+    return $this->getEditorUrl().'#view:doc;doc:'.$this->getDocId($job_item);
   }
 
   /**
@@ -420,13 +421,10 @@ class TmgmtZanataConnector {
 
       $docNode = $job_item->item_type.'/'.$job_item->item_id;
       $docTitle = $job_item->data['node_title']['#text'];
-      $filter_chars = array(' ', '.');
-      $docTitleWithUnderscore = str_replace($filter_chars, '_', $docTitle);
-      $docName = $docNode.'/'.$docTitleWithUnderscore;
       global $base_url;
       $docDetails = array(
-        'docTitle' => $docTitle, 'docName' => $docName,
-        'zanataURL' => $this->getDocEditorUrl($docName),
+        'docTitle' => $docTitle, 'docName' => $this->getDocId($job_item),
+        'zanataURL' => $this->getDocEditorUrl($job_item),
         'drupalURL' => $base_url.'/'.$docNode
       );
 
@@ -449,10 +447,10 @@ class TmgmtZanataConnector {
       $emailSettings = $this->job->getTranslator()->getSetting('email');
       $notificationEmail = $emailSettings['address'];
       $emailSubject = 'Translation job submitted to Zanata for locale: '.$this->getLocale();
-      $body = $this->formatEmailBody($email_contents);
+      $body = $this->notification->formatEmailBody($email_contents, $this->getLocale());
 
       if ($emailSettings['notification'] and $notificationEmail){
-        $this->send_drupal_mail('default_from', $notificationEmail, $emailSubject, $body);
+        $this->notification->send_drupal_mail('default_from', $notificationEmail, $emailSubject, $body);
       }
     }
     else {
@@ -875,94 +873,6 @@ class TmgmtZanataConnector {
       'extensions' => array(),
       'revision' => 1,
     );
-  }
-
-  /**
-   * Function to format notification email body
-   */
-  private function formatEmailBody($email_contents, $type='PLAIN'){
-    $title = drupal_get_title();
-    $site_name = variable_get('site_name', "Drupal");
-    $page_title = $title." | ".$site_name;
-    $msg = "A translation job has been submitted to Zanata from '".$page_title."'. Details:";
-    if ($type === 'HTML') {
-      $msgBody = "<html><body>";
-      $msgBody .= "<h3>Hello,</h3>";
-      $msgBody .= "<br/><br/>";
-      $msgBody .= $msg;
-      $msgBody .= "<br/>";
-      $msgBody .= "Locale: ".$this->getLocale();
-      $msgBody .= "<br/>";
-      $msgBody .= "Documents...";
-      $msgBody .= "<br/>";
-      $msgBody .= "<table rules='all' style='border-color: #666;' cellpadding='10'>";
-      $msgBody .= "<tr align='left' style='background: #eee;'><td><strong>Title</strong></td>";
-      $msgBody .= "<td><strong>Name in Zanata</strong></td>";
-      $msgBody .= "<td><strong>Zanata URL</strong></td><td><strong>Drupal URL</strong></td></tr>";
-
-      foreach ($email_contents as $content) {
-        $msgBody .= "<tr>";
-        $msgBody .= "<td>" . $content['docTitle'] . "</td>";
-        $msgBody .= "<td>" . $content['docName'] . "</td>";
-        $msgBody .= "<td><a href=\"" . $content['zanataURL'] . "\">translate in Zanata</a></td>";
-        $msgBody .= "<td><a href=\"" . $content['drupalURL'] . "\">view source document</a></td>";
-        $msgBody .= "</tr>";
-      }
-
-      $msgBody .= "</table>";
-      $msgBody .= "<br/><br/>";
-      $msgBody .= "Zanata Team";
-      $msgBody .= "</body></html>";
-    }
-    else {
-      $msgBody = "Hello,\n\n";
-      $msgBody .= $msg."\n";
-      $msgBody .= "Locale: ".$this->getLocale()."\n\n";
-      $msgBody .= "Documents...\n\n";
-      foreach ($email_contents as $content) {
-        $msgBody .= "Doc Title: ".$content['docTitle']."\n";
-        $msgBody .= "Name in Zanata: ".$content['docName']."\n";
-        $msgBody .= "Zanata URL: ".$content['zanataURL']."\n";
-        $msgBody .= "Drupal URL: ".$content['drupalURL']."\n\n";
-      }
-      $msgBody .= "\n";
-      $msgBody .= "Zanata Team";
-    }
-    return $msgBody;
-  }
-
-  /**
-   * Simple wrapper function for drupal_mail()
-   */
-  public function send_drupal_mail($from = 'default_from', $to, $subject, $message) {
-    $module = 'tmgmt_zanata';
-    $mail_token = microtime();
-    if ($from == 'default_from') {
-      $from = variable_get('system_mail', 'noreply@zanata.org');
-    }
-    $message = array(
-        'id' => $module . '_' . $mail_token,
-        'to' => $to,
-        'subject' => $subject,
-        'body' => array($message),
-        'headers' => array(
-            'From' => $from,
-            'Sender' => $from,
-            'Return-Path' => $from,
-            'MIME-Version' => '1.0',
-            'Content-Type' => "text/plain; charset=UTF-8",
-            'Content-Transfer-Encoding' => '8Bit',
-            'X-Mailer' => 'Drupal'
-        ),
-    );
-    $system = drupal_mail_system($module, $mail_token);
-    $message = $system->format($message);
-    if ($system->mail($message)) {
-      return TRUE;
-    }
-    else {
-      return FALSE;
-    }
   }
 
 }
