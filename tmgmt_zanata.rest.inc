@@ -174,6 +174,17 @@ class TMGMTZanataTranslatorRESTClient {
     }
 
     /**
+     * Generate statistics URL for document, locale
+     *
+     * @return string
+     *   the base REST URL to query stats
+     */
+    public function getDocStatsUrl($docId) {
+        return "{$this->serverUrl}/rest/stats/proj/{$this->projectId}/"
+        . "iter/{$this->versionId}/doc/". $docId ."?locale=". $this->getLocale();
+    }
+
+    /**
      * Generate some common options for a HTTP request.
      *
      * @param string $content_type HTTP Header content-type

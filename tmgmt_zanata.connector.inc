@@ -23,6 +23,8 @@ class TmgmtZanataConnector {
   private $notification;
   private $restclient;
 
+  private $threshold;
+
   /**
    * Create a new connector for the given job.
    *
@@ -43,6 +45,8 @@ class TmgmtZanataConnector {
     $this->job = $job;
     $this->translator = $translator;
     $this->controller = $translator->getController();
+
+    $this->threshold = 100;
 
   }
 
@@ -124,15 +128,24 @@ class TmgmtZanataConnector {
         }
 
         foreach ($html_docs as $index => $doc) {
-          //
-          // ToDO implement Statistics API
-          //
-          $url = $this->restclient->getFileDownloadUrl($doc);
-          $options = $this->restclient->getBaseOptions(
-              'application/octet-stream', 'application/octet-stream'
+          // check stats
+          $url = $this->restclient->getDocStatsUrl($doc);
+          $options = $this->restclient->getBaseOptions();
+          $response = $this->restclient->process_request($url, $options);
+          $translation_threshold = $this->getTranslationThreshold(
+              drupal_json_decode($response->data)
           );
-          $response = $this->restclient->process_request($url, $options, true);
-          $html_docs_translations[$doc] = $this->createItemResponse('body][0][value', $response->data);
+
+          if ($translation_threshold >= $this->threshold) {
+            // download file
+            $url = $this->restclient->getFileDownloadUrl($doc);
+            $options = $this->restclient->getBaseOptions(
+                'application/octet-stream', 'application/octet-stream'
+            );
+            $response = $this->restclient->process_request($url, $options, true);
+            // FIXME 'body][0][value' (suffice as of now)
+            $html_docs_translations[$doc] = $this->createItemResponse('body][0][value', $response->data);
+          }
         }
 
         // club all the translations received from server
@@ -150,7 +163,7 @@ class TmgmtZanataConnector {
             $targets = $this->combineTextFlowTargets($entire_translations);
           }
 
-          if ($this->useSegmentation and $this->translator->getSetting('segmentation') == 'HTML') {
+          if ($this->useSegmentation and $html_node_content) {
             $translated = $this->processUnsegmentedTranslations($targets);
           }
           elseif ($this->useSegmentation) {
@@ -373,7 +386,8 @@ class TmgmtZanataConnector {
       global $base_url;
       $docDetails = array(
         'docTitle' => $docTitle, 'docName' => $this->restclient->getDocId($job_item),
-        'zanataURL' => $this->restclient->getDocEditorUrl($job_item),
+        'zanataDocURL' => $this->restclient->getDocEditorUrl($job_item),
+        'editorURL' => $this->restclient->getEditorUrl(),
         'drupalURL' => $base_url.'/'.$docNode
       );
 
@@ -892,6 +906,11 @@ class TmgmtZanataConnector {
     );
   }
 
+  /**
+   * @param $resId
+   * @param $content
+   * @return array
+   */
   private function createItemResponse($resId, $content) {
     $item_response = array();
     $item_response['extensions'] = array();
@@ -911,6 +930,10 @@ class TmgmtZanataConnector {
     return $item_response;
   }
 
+  /**
+   * @param $translations
+   * @return array
+   */
   private function combineTextFlowTargets($translations) {
     $targets = array();
     foreach ($translations as $node => $value) {
@@ -919,5 +942,32 @@ class TmgmtZanataConnector {
         }
     }
     return $targets;
+  }
+
+  /**
+   * Calculates translation threshold
+   *
+   * @param $stats_data
+   * @return float
+   */
+  private function getTranslationThreshold($stats_data) {
+
+    $translated = 0;
+    $total = 0;
+
+    if (array_key_exists('stats', $stats_data)) {
+      $stats = $stats_data['stats'];
+      foreach ($stats as $index => $stat) {
+        foreach ($stat as $item => $value) {
+          if ($item === 'translated') {
+            $translated += $value;
+          } elseif ($item === 'total') {
+            $total += $value;
+          }
+        }
+      }
+    }
+
+    return ($translated * 100) / $total;
   }
 }
