@@ -63,53 +63,97 @@ class TmgmtZanataConnector {
 
     $count_items_with_changes = 0;
     $count_strings_changed = 0;
+    $response = null;
+    $entire_translations= null;
 
     foreach ($job->getItems() as $job_item) {
-      $url = $this->restclient->getItemTranslationUrl($job_item);
-      $options = $base_options;
 
-      /* TODO consider skipping any item that is marked as completed, to avoid
-       * excess network traffic. This would miss translations that have been
-       * updated since the last check.
-       */
-      $this->setEtagHeaderFromItem($options, $job_item);
+      $html_node_content = $this->determineNodeContentFormat($job_item);
 
+      if (!$html_node_content) {
+        $url = $this->restclient->getItemTranslationUrl($job_item);
+        $options = $base_options;
 
-      $url = "https://translate.zanata.org/rest/file/translation/88888/drupal1/hi/baked?docId=node/26/Downloads";
-      $options['headers']['Content-Type'] = "application/octet-stream";
-      $options['headers']['Accept'] = "application/octet-stream";
-      $options['method'] = 'GET';
+        /* TODO consider skipping any item that is marked as completed, to avoid
+         * excess network traffic. This would miss translations that have been
+         * updated since the last check.
+         */
+        $this->setEtagHeaderFromItem($options, $job_item);
+        $response = $this->restclient->process_request($url, $options);
 
+      } else {
 
-      $curl = curl_init();
-      curl_setopt($curl, CURLOPT_URL, $url);
-      curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
-      curl_setopt($curl, CURLOPT_VERBOSE, 1);
-      curl_setopt($curl, CURLOPT_HEADER, 1);
-      curl_setopt($curl, CURLOPT_TIMEOUT, 60);
-      curl_setopt($curl, CURLOPT_HTTPHEADER, $options['headers']);
-      $server_output = curl_exec ($curl);
+        // determine what all documents belong to this job_item
+        // and from all docs, filter html ones
+        global $docId;
+        $docId = $this->restclient->getDocId($job_item);
+        $docsList = array();
+        $url = $this->restclient->getDocsListUrl();
+        $options = $base_options;
+        $response = $this->restclient->process_request($url, $options);
+        $data = drupal_json_decode($response->data);
 
-      $header_size = curl_getinfo($curl, CURLINFO_HEADER_SIZE);
-      $response_code = curl_getinfo($curl, CURLINFO_HTTP_CODE);
-      $header = substr($server_output, 0, $header_size);
-      $body = substr($server_output, $header_size);
+        foreach ($data as $doc) {
+          array_push($docsList, $doc['name']);
+        }
 
-      var_dump($response_code);
-      curl_close ($curl);
+        function filter_docs($value) {
+          global $docId;
+          return strstr($value, $docId);
+        }
 
+        function filter_html_docs($value) {
+          return strstr($value, 'html');
+        }
 
-      $response = drupal_http_request($url, $options);
+        $related_docs = array_filter($docsList, 'filter_docs');
+        $html_docs = array_filter($related_docs, 'filter_html_docs');
+        $non_html_docs = array_diff($related_docs, $html_docs);
 
-      // switch ($response->code) {
+        // collect translations (html responses) for html and non-html docs
+        $non_html_docs_translations = array();
+        $html_docs_translations = array();
+
+        foreach ($non_html_docs as $index => $doc) {
+          if ($doc == $docId) {
+            $url = $url = $this->restclient->getItemTranslationUrl($job_item);
+            $options = $base_options;
+            $response = $this->restclient->process_request($url, $options);
+            $non_html_docs_translations[$doc] = drupal_json_decode($response->data);
+          }
+        }
+
+        foreach ($html_docs as $index => $doc) {
+          //
+          // ToDO implement Statistics API
+          //
+          $url = $this->restclient->getFileDownloadUrl($doc);
+          $options = $this->restclient->getBaseOptions(
+              'application/octet-stream', 'application/octet-stream'
+          );
+          $response = $this->restclient->process_request($url, $options, true);
+          $html_docs_translations[$doc] = $this->createItemResponse('body][0][value', $response->data);
+        }
+
+        // club all the translations received from server
+        $entire_translations = array_merge($non_html_docs_translations, $html_docs_translations);
+
+      }
+
       switch ($response->code) {
         case 200:
-          // $data = drupal_json_decode($response->data);
-          // $targets = $data['textFlowTargets'];
+          $targets = null;
+          if (!$html_node_content) {
+            $data = drupal_json_decode($response->data);
+            $targets = $data['textFlowTargets'];
+          } else {
+            $targets = $this->combineTextFlowTargets($entire_translations);
+          }
 
-          $targets = array('body][0][value-segment-0' => array('state' => 'Approved', 'content' => $body));
-
-          if ($this->useSegmentation) {
+          if ($this->useSegmentation and $this->translator->getSetting('segmentation') == 'HTML') {
+            $translated = $this->processUnsegmentedTranslations($targets);
+          }
+          elseif ($this->useSegmentation) {
             $translated = $this->processTranslatedSegments($job_item, $targets);
           }
           else {
@@ -217,9 +261,7 @@ class TmgmtZanataConnector {
 
     $source_data = array_filter(tmgmt_flatten_data($job_item->getData()),
                                 '_tmgmt_filter_data');
-
-    // return $this->segmenter->joinTranslatedSegments($source_data, $targets);
-    return $this->segmenter->joinTranslatedSegments($source_data, $flat_targets);
+    return $this->segmenter->joinTranslatedSegments($source_data, $targets);
   }
 
   /**
@@ -610,6 +652,12 @@ class TmgmtZanataConnector {
     return $structure;
   }
 
+  /**
+   * To determine content format is HTML or not.
+   *
+   * @param $job_item
+   * @return bool
+   */
   private function determineNodeContentFormat($job_item) {
     $html_content = null;
 
@@ -659,12 +707,15 @@ class TmgmtZanataConnector {
 
     $html_flag = $this->determineNodeContentFormat($job_item);
 
+    $process_request_queue = array();
+
     if (!$html_flag) {
       $url = $this->restclient->getItemUrl($job_item);
       $options = $base_options;
       $data = $this->getCommonData();
       $data['textFlows'] = $this->prepareStrings($job_item);
       $options['data'] = json_encode($data);
+      $process_request_queue[$url] =  $options;
 
     } else {
 
@@ -673,22 +724,33 @@ class TmgmtZanataConnector {
 
       foreach ($source_data as $field => $content) {
         if ($content['#label'] === 'Body') {
-          //
-          // process html here
-          //
+          $url = $this->restclient->getFileUploadUrl(
+              $this->restclient->getDocId($job_item).'.'.$content['#label'].'.html'
+          );
+          $options = $base_options;
+          $options['data'] = $content['#text'];
+          $options = $this->restclient->handleFileUpload($options);
+          $process_request_queue[$url] =  $options;
+
         } elseif ($field === 'node_title'){
           $url = $this->restclient->getItemUrl($job_item);
           $options = $base_options;
           $data = $this->getCommonData();
           $data['textFlows'] = array($this->createItem($field, $content['#text']));
           $options['data'] = json_encode($data);
+          $process_request_queue[$url] =  $options;
+
         }
       }
     }
 
     /* TODO consider copytrans */
 
-    $response = $this->restclient->process_request($url, $options);
+    // Pushing node contents to server
+    $response = null;
+    foreach ($process_request_queue as $url => $options) {
+      $response = $this->restclient->process_request($url, $options);
+    }
 
     switch ($response->code) {
       case 200:
@@ -830,4 +892,32 @@ class TmgmtZanataConnector {
     );
   }
 
+  private function createItemResponse($resId, $content) {
+    $item_response = array();
+    $item_response['extensions'] = array();
+    $item_response['textFlowTargets'] = array();
+
+    $node = array(
+        'resId' => $resId,
+        'state' => 'Approved',
+        'translator' => array(),
+        'content' => $content,
+        'extensions' => array(),
+        'revision' => 1,
+        'textFlowRevision' => 1,
+    );
+
+    array_push($item_response['textFlowTargets'], $node);
+    return $item_response;
+  }
+
+  private function combineTextFlowTargets($translations) {
+    $targets = array();
+    foreach ($translations as $node => $value) {
+        foreach ($value['textFlowTargets'] as $index => $text) {
+          array_push($targets, $text);
+        }
+    }
+    return $targets;
+  }
 }

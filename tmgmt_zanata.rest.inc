@@ -76,17 +76,6 @@ class TMGMTZanataTranslatorRESTClient {
     }
 
     /**
-     * Generate file upload download URL for documents
-     *
-     * @return string
-     *   the base REST URL to upload/download documents
-     */
-    public function getFileUploadUrl($zanataDocId) {
-        return "{$this->serverUrl}/rest/file/source/{$this->projectId}/"
-        . "{$this->versionId}?docId=".$zanataDocId;
-    }
-
-    /**
      * Generate a document ID for a given job item.
      *
      * @return string
@@ -152,6 +141,39 @@ class TMGMTZanataTranslatorRESTClient {
     }
 
     /**
+     * Generate file upload URL
+     *
+     * @return string
+     *   the base REST URL to upload documents
+     */
+    public function getFileUploadUrl($docId) {
+        return "{$this->serverUrl}/rest/file/source/{$this->projectId}/"
+        . "{$this->versionId}?docId=". $docId;
+    }
+
+    /**
+     * Generate file download URL for documents
+     *
+     * @return string
+     *   the base REST URL to download documents
+     */
+    public function getFileDownloadUrl($docId) {
+        return "{$this->serverUrl}/rest/file/translation/{$this->projectId}/"
+        . "{$this->versionId}/". $this->getLocale() ."/baked?docId=". $docId;
+    }
+
+    /**
+     * Generate list documents URL for project_version
+     *
+     * @return string
+     *   the base REST URL to list documents
+     */
+    public function getDocsListUrl() {
+        return "{$this->serverUrl}/rest/projects/p/{$this->projectId}/"
+        . "iterations/i/{$this->versionId}/r";
+    }
+
+    /**
      * Generate some common options for a HTTP request.
      *
      * @param string $content_type HTTP Header content-type
@@ -174,7 +196,6 @@ class TMGMTZanataTranslatorRESTClient {
     /**
      * To keep post_data ready required for file upload.
      *
-     * @param mixed[] $options POST data params
      * @return mixed[] post_data as required for Zanata server uploads
      */
     public function handleFileUpload($options) {
