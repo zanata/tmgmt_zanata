@@ -68,7 +68,7 @@ class TmgmtZanataConnector {
     $count_items_with_changes = 0;
     $count_strings_changed = 0;
     $response = null;
-    $entire_translations= null;
+    $entire_translations = null;
 
     foreach ($job->getItems() as $job_item) {
 
@@ -120,7 +120,7 @@ class TmgmtZanataConnector {
 
         foreach ($non_html_docs as $index => $doc) {
           if ($doc == $docId) {
-            $url = $url = $this->restclient->getItemTranslationUrl($job_item);
+            $url = $this->restclient->getItemTranslationUrl($job_item);
             $options = $base_options;
             $response = $this->restclient->process_request($url, $options);
             $non_html_docs_translations[$doc] = drupal_json_decode($response->data);
@@ -143,12 +143,13 @@ class TmgmtZanataConnector {
                 'application/octet-stream', 'application/octet-stream'
             );
             $response = $this->restclient->process_request($url, $options, true);
-            // FIXME 'body][0][value' (suffice as of now)
-            $html_docs_translations[$doc] = $this->createItemResponse('body][0][value', $response->data);
+            $html_docs_translations[$doc] = $this->createItemResponse(
+                rtrim(substr($doc, strlen($docId.'.')), '.html'), $response->data
+            );
           }
         }
 
-        // club all the translations received from server
+        // merge all the translations received from server
         $entire_translations = array_merge($non_html_docs_translations, $html_docs_translations);
 
       }
@@ -675,23 +676,22 @@ class TmgmtZanataConnector {
   private function determineNodeContentFormat($job_item) {
     $html_content = null;
 
-    // check and set html flag
-    $html_segmentation_setting =
-        $this->translator->getSetting('segmentation') === 'HTML';
+    // check HTML segmentation setting
+    if ($this->translator->getSetting('segmentation') !== 'HTML') {
+      return FALSE;
+    }
 
+    // check html format for any of the elements
     $job_data = $job_item->data;
     foreach ($job_data as $node_field => $value_array) {
-      if ($node_field === 'body') {
-        foreach ($value_array as $field => $contents) {
-          if (is_int($field)) {
-            $node_content_format = $contents['format']['#text'];
-            $html_content = strstr($node_content_format, 'html');
-          }
+      foreach ($value_array as $field => $contents) {
+        if (is_int($field) and
+            strstr($contents['format']['#text'], 'html')) {
+            return TRUE;
         }
       }
     }
-
-    return $html_segmentation_setting and $html_content;
+    return FALSE;
   }
 
   /**
@@ -733,27 +733,25 @@ class TmgmtZanataConnector {
 
     } else {
 
-      // process html contents
-      $source_data = $this->getFlattenedSourceData($job_item);
+      $job_item_data = new TmgmtZanataJobItemDataBuilder($job_item);
+      $job_item_contents = $job_item_data->process_node_contents();
 
-      foreach ($source_data as $field => $content) {
-        if ($content['#label'] === 'Body') {
+      foreach ($job_item_contents as $content) {
+        if ($content->is_html) {
           $url = $this->restclient->getFileUploadUrl(
-              $this->restclient->getDocId($job_item).'.'.$content['#label'].'.html'
+              $this->restclient->getDocId($job_item).'.'.$content->key.'.html'
           );
           $options = $base_options;
-          $options['data'] = $content['#text'];
+          $options['data'] = $content->data;
           $options = $this->restclient->handleFileUpload($options);
           $process_request_queue[$url] =  $options;
-
-        } elseif ($field === 'node_title'){
+        } else {
           $url = $this->restclient->getItemUrl($job_item);
           $options = $base_options;
           $data = $this->getCommonData();
-          $data['textFlows'] = array($this->createItem($field, $content['#text']));
+          $data['textFlows'] = array($this->createItem($content->key, $content->data));
           $options['data'] = json_encode($data);
-          $process_request_queue[$url] =  $options;
-
+          $process_request_queue[$url] = $options;
         }
       }
     }
@@ -762,8 +760,23 @@ class TmgmtZanataConnector {
 
     // Pushing node contents to server
     $response = null;
+    $responses = array();
+
     foreach ($process_request_queue as $url => $options) {
       $response = $this->restclient->process_request($url, $options);
+      array_push($responses, $response);
+    }
+
+    function test_response_code($response){
+      return !in_array($response->code, array(200, 201));
+    }
+
+    if (!empty(array_filter($responses, 'test_response_code'))) {
+      foreach ($responses as $resp) {
+        if (!in_array($resp->code, array(200, 201))) {
+          $response = $resp;
+        }
+      }
     }
 
     switch ($response->code) {
