@@ -49,14 +49,14 @@ class TmgmtZanataJobItemDataBuilder {
     }
 
     /**
-     * @return mixed
+     * @return mixed TMGMT Job Item Data
      */
     public function getJobItemData() {
         return $this->job_item->data;
     }
 
     /**
-     * @return array
+     * @return array Job item translation stats
      */
     public function getJobItemStats() {
         return Array(
@@ -76,14 +76,18 @@ class TmgmtZanataJobItemDataBuilder {
     }
 
     /**
-     * @param $keys
-     * @return array
+     * Creates mapping between translatable content keys
+     * in the order, formats to their values
+     * example: body][0][format => body][0][value
+     *
+     * @param $src_msg_keys tmgmt_flatten_data keys
+     * @return array format to value mappings
      */
-    private function value_format_mapping($keys) {
+    private function value_format_mapping($src_msg_keys) {
         $values = array();
         $formats = array();
         $others = array();
-        foreach ($keys as $key) {
+        foreach ($src_msg_keys as $key) {
             if (strstr($key, 'value')) {
                 array_push($values, $key);
             }
@@ -106,6 +110,11 @@ class TmgmtZanataJobItemDataBuilder {
         return array_merge($result, $others);
     }
 
+    /**
+     * Process TMGMT flatten data and make it more descriptive
+     *
+     * @return array NodeFieldContent elements
+     */
     public function process_node_contents() {
 
         $node_contents = array();

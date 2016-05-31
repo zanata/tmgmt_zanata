@@ -685,7 +685,7 @@ class TmgmtZanataConnector {
     $job_data = $job_item->data;
     foreach ($job_data as $node_field => $value_array) {
       foreach ($value_array as $field => $contents) {
-        if (is_int($field) and
+        if (is_int($field) and array_key_exists('format', $contents) and
             strstr($contents['format']['#text'], 'html')) {
             return TRUE;
         }
@@ -712,6 +712,16 @@ class TmgmtZanataConnector {
   }
 
   /**
+   * @param $haystack
+   * @param $needle
+   * @return bool
+   */
+  private function ends_with($haystack, $needle) {
+    return $needle === "" || (($temp = strlen($haystack) - strlen($needle))
+        >= 0 && strpos($haystack, $needle, $temp) !== false);
+  }
+
+  /**
    * Request translation for a single item.
    *
    * @return bool
@@ -720,7 +730,7 @@ class TmgmtZanataConnector {
   private function requestItemTranslation(TMGMTJobItem $job_item, $base_options) {
 
     $html_flag = $this->determineNodeContentFormat($job_item);
-
+    $html_doc = null;
     $process_request_queue = array();
 
     if (!$html_flag) {
@@ -738,9 +748,8 @@ class TmgmtZanataConnector {
 
       foreach ($job_item_contents as $content) {
         if ($content->is_html) {
-          $url = $this->restclient->getFileUploadUrl(
-              $this->restclient->getDocId($job_item).'.'.$content->key.'.html'
-          );
+          $html_doc = $this->restclient->getDocId($job_item).'.'.$content->key.'.html';
+          $url = $this->restclient->getFileUploadUrl($html_doc);
           $options = $base_options;
           $options['data'] = $content->data;
           $options = $this->restclient->handleFileUpload($options);
@@ -759,72 +768,67 @@ class TmgmtZanataConnector {
     /* TODO consider copytrans */
 
     // Pushing node contents to server
-    $response = null;
-    $responses = array();
+    $rest_responses = array();
 
     foreach ($process_request_queue as $url => $options) {
       $response = $this->restclient->process_request($url, $options);
-      array_push($responses, $response);
-    }
+      array_push($rest_responses, $response);
 
-    function test_response_code($response){
-      return !in_array($response->code, array(200, 201));
-    }
+      switch ($response->code) {
+        case 200:
+        case 201:
+          $doc_id = $this->ends_with($url, '.html') ? $html_doc : $this->restclient->getDocId($job_item);
+          $job_item->addMessage(
+              'Sent document: item "@title" sent to Zanata as document "@doc_id".',
+              array(
+                  '@title' => $job_item->defaultLabel(),
+                  '@doc_id' => $doc_id,
+              ));
+          // Add doc_id as remote_identifier_1, full URL as remote_url.
+          $job_item->addRemoteMapping(NULL, $doc_id, array(
+              'remote_url' => $url,
+          ));
+          break;
 
-    if (!empty(array_filter($responses, 'test_response_code'))) {
-      foreach ($responses as $resp) {
-        if (!in_array($resp->code, array(200, 201))) {
-          $response = $resp;
-        }
+        case 401:
+          $this->showAuthErrorMessage();
+          $job_item->addMessage(
+              'Item "@title" was not successfully sent to Zanata due to an authorization error.',
+              array(
+                  '@title' => $job_item->defaultLabel(),
+                  '@code' => $response->code,
+              ), 'error');
+          break;
+
+        case 403:
+          $this->showPermissionErrorMessage();
+          break;
+
+        case 404:
+          $this->showNotFoundErrorMessage();
+          break;
+
+        default:
+          $doc = $this->ends_with($url, '.html') ? $html_doc : $this->restclient->getDocId($job_item);
+          $this->addSendSourceErrorToItem($job_item, $response, $doc);
+          break;
       }
     }
 
-    switch ($response->code) {
-      case 200:
-      case 201:
-        $doc_id = $this->restclient->getDocId($job_item);
-        $job_item->addMessage(
-          'Sent document: item "@title" sent to Zanata as document "@doc_id".',
-          array(
-            '@title' => $job_item->defaultLabel(),
-            '@doc_id' => $doc_id,
-          ));
-        // Add doc_id as remote_identifier_1, full URL as remote_url.
-        $job_item->addRemoteMapping(NULL, $doc_id, array(
-          'remote_url' => $url,
-        ));
-        return TRUE;
-
-      case 401:
-        $this->showAuthErrorMessage();
-        $job_item->addMessage(
-          'Item "@title" was not successfully sent to Zanata due to an authorization error.',
-          array(
-            '@title' => $job_item->defaultLabel(),
-            '@code' => $response->code,
-          ), 'error');
-        return FALSE;
-
-      case 403:
-        $this->showPermissionErrorMessage();
-        return FALSE;
-
-      case 404:
-        $this->showNotFoundErrorMessage();
-        return FALSE;
-
-      default:
-        $this->addSendSourceErrorToItem($job_item, $response);
-        return FALSE;
+    if(!function_exists("not_success_response")) {
+      function not_success_response($resp){
+        return !in_array($resp->code, array(200, 201));
+      }
     }
+    return empty(array_filter($rest_responses, 'not_success_response'));
   }
 
-  private function addSendSourceErrorToItem(TMGMTJobItem $job_item, $response) {
+  private function addSendSourceErrorToItem(TMGMTJobItem $job_item, $response, $doc) {
     if (isset($response->error)) {
       $job_item->addMessage(
         'Item "@title" was not successfully sent to Zanata. Status code: @code. Error: "@error"',
         array(
-          '@title' => $job_item->defaultLabel(),
+          '@title' => $doc,
           '@code' => $response->code,
           '@error' => $response->error,
         ), 'error');
@@ -833,7 +837,7 @@ class TmgmtZanataConnector {
       $job_item->addMessage(
         'Item "@title" was not successfully sent to Zanata. Status code: @code.',
         array(
-          '@title' => $job_item->defaultLabel(),
+          '@title' => $doc,
           '@code' => $response->code,
         ), 'error');
     }
