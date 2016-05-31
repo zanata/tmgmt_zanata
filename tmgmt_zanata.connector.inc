@@ -820,7 +820,8 @@ class TmgmtZanataConnector {
         return !in_array($resp->code, array(200, 201));
       }
     }
-    return empty(array_filter($rest_responses, 'not_success_response'));
+    $failed_responses = array_filter($rest_responses, 'not_success_response');
+    return empty($failed_responses);
   }
 
   private function addSendSourceErrorToItem(TMGMTJobItem $job_item, $response, $doc) {
