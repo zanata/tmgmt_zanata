@@ -57,7 +57,8 @@ class TMGMTZanataTranslatorNotification {
                 $msgBody .= "<tr>";
                 $msgBody .= "<td>" . $content['docTitle'] . "</td>";
                 $msgBody .= "<td>" . $content['docName'] . "</td>";
-                $msgBody .= "<td><a href=\"" . $content['zanataURL'] . "\">translate in Zanata</a></td>";
+                $msgBody .= "<td><a href=\"" . $content['zanataDocURL'] . "\">translate document in Zanata</a></td>";
+                $msgBody .= "<td><a href=\"" . $content['editorURL'] . "\">translate in Zanata</a></td>";
                 $msgBody .= "<td><a href=\"" . $content['drupalURL'] . "\">view source document</a></td>";
                 $msgBody .= "</tr>";
             }
@@ -79,7 +80,8 @@ class TMGMTZanataTranslatorNotification {
             foreach ($email_contents as $content) {
                 $msgBody .= "Doc Title: ".$content['docTitle']."\n";
                 $msgBody .= "Name in Zanata: ".$content['docName']."\n";
-                $msgBody .= "Zanata URL: ".$content['zanataURL']."\n";
+                $msgBody .= "Zanata URL: ".$content['editorURL']."\n";
+                $msgBody .= "Document URL: ".$content['zanataDocURL']."\n";
                 $msgBody .= "Drupal URL: ".$content['drupalURL']."\n\n";
             }
             $msgBody .= "\n";

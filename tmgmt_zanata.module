@@ -61,28 +61,12 @@ function tmgmt_zanata_cron(){
 
         if (!empty($result['tmgmt_job'])) {
             $active_translation_jobs = array_keys($result['tmgmt_job']);
-            $queue = DrupalQueue::get('poll_trans');
             foreach ($active_translation_jobs as $job_id) {
-                $queue->createItem($job_id);
+                $job = tmgmt_job_load($job_id);
+                if ($job->getTranslator()->getSetting('transcheck')) {
+                    $job->getTranslatorController()->getConnector($job)->pollTranslations();
+                }
             }
         }
-    }
-}
-
-/*
- * Implements hook_cron_queue_info().
- */
-function tmgmt_zanata_cron_queue_info(){
-    $queues['poll_trans'] = array(
-        'worker callback' => 'poll_translation',
-        'time' => 120,
-    );
-    return $queues;
-}
-
-function poll_translation($job_id){
-    $job = tmgmt_job_load($job_id);
-    if ($job->getTranslator()->getSetting('transcheck')) {
-        $job->getTranslatorController()->getConnector($job)->pollTranslations();
     }
 }

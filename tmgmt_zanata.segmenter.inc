@@ -42,6 +42,7 @@ class TmgmtZanataSegmenter {
       case 'SENTENCES':
         $this->segmentRegex = $this::SENTENCE_REGEX;
         break;
+      case 'HTML':
       case 'NONE':
         // Regex purposely matches nothing so there will be a single segment.
         $this->segmentRegex = '/$^/';

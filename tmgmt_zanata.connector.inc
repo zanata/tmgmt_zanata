@@ -5,7 +5,7 @@
  */
 
 /**
- * Handles operations relating to Zanata URLs and translation job requests.
+ * Handles operations relating to translation job requests and responses.
  */
 class TmgmtZanataConnector {
 
@@ -15,17 +15,15 @@ class TmgmtZanataConnector {
   private $useSegmentation;
 
   private $segmenter;
-
-  private $serverUrl;
-  private $projectId;
-  private $versionId;
-  private $username;
-  private $apiKey;
+  private $emailSettings;
 
   private $job;
   private $translator;
   private $controller;
   private $notification;
+  private $restclient;
+
+  private $threshold;
 
   /**
    * Create a new connector for the given job.
@@ -36,118 +34,28 @@ class TmgmtZanataConnector {
 
     $translator = $job->getTranslator();
 
-    $this->serverUrl = $translator->getSetting('server');
-    $this->projectId = $translator->getSetting('project');
-    $this->versionId = $translator->getSetting('version');
-    $this->username = $translator->getSetting('username');
-    $this->apiKey = $translator->getSetting('api_key');
-
+    $this->emailSettings = $translator->getSetting('email');
     $segmentation = $translator->getSetting('segmentation');
     $this->useSegmentation = $segmentation != 'NONE';
     // TODO only create if $useSegmentation
     $this->segmenter = new TmgmtZanataSegmenter($segmentation);
     $this->notification = new TMGMTZanataTranslatorNotification();
+    $this->restclient = new TMGMTZanataTranslatorRESTClient($job);
 
     $this->job = $job;
     $this->translator = $translator;
     $this->controller = $translator->getController();
+
+    $this->threshold = 100;
+
   }
 
   /**
-   * Generate the URL for the translation editor in Zanata.
+   * the URL for the translation editor in Zanata.
    *
-   * This will be the URL to the document list in the editor, ready for a node
-   * to be selected.
    */
   public function getEditorUrl() {
-    $locale = $this->getLocale();
-    return "{$this->serverUrl}/webtrans/Application.seam?project={$this->projectId}&iteration={$this->versionId}&localeId={$locale}&locale=en";
-  }
-
-  /**
-   * Generate the URL for the translation editor in Zanata for a Doc.
-   *
-   * This will be the URL to the document in the editor, ready for a node
-   * to be translated.
-   */
-  public function getDocEditorUrl($job_item) {
-    return $this->getEditorUrl().'#view:doc;doc:'.$this->getDocId($job_item);
-  }
-
-  /**
-   * Generate a base URL for documents in a project/version.
-   *
-   * @return string
-   *   the base REST URL for documents in the configured project/version
-   */
-  private function getBaseUrl() {
-    return "{$this->serverUrl}/rest/projects/p/{$this->projectId}/"
-           . "iterations/i/{$this->versionId}/r";
-  }
-
-  /**
-   * Generate a document ID for a given job item.
-   *
-   * @return string
-   *   the unencoded document id on Zanata for the given job item
-   */
-  private function getDocId($job_item) {
-    $id = $job_item->item_id;
-    $type = $job_item->item_type;
-
-    // returns an associative array with id as key
-    $loaded_entity = entity_load($type, array($id));
-    $entity = $loaded_entity[$id];
-    $label = entity_label($type, $entity);
-
-    if ($label) {
-      // Some characters are not supported in docId for Zanata, so these are
-      // replaced with '_'.
-      $label = strtr($label,
-        ' ,.!?@+#$%^&*()[]{}<>`\'"\\|/;:~',
-        '________________________________');
-
-      // Leading underscores and dashes could cause the meaningful part of the
-      // name to be lost if it is too long. Remove them.
-      $label = ltrim($label, '_-');
-
-      // Only use label if it has not all been trimmed away
-      if (strlen($label) > 0) {
-        $doc_id = "{$type}/{$id}/{$label}";
-        $doc_id =
-          truncate_utf8($doc_id, TmgmtZanataConnector::MAX_DOCID_LENGTH, FALSE);
-        // Zanata breaks if a doc id ends with _ or -
-        $doc_id = rtrim($doc_id, '_-');
-
-        return $doc_id;
-      }
-    }
-
-    // Assumption: this will never be as long as MAX_DOCID_LENGTH
-    return "{$type}/{$id}";
-  }
-
-  /**
-   * Generate a REST URL for a given job item.
-   *
-   * @return string
-   *   the REST URL for the given job item
-   */
-  private function getItemUrl(TMGMTJobItem $job_item) {
-    $doc_id = $this->getDocId($job_item);
-    // Zanata requires '/' to be replaced with ','.
-    $encoded_doc_id = strtr($doc_id, '/', ',');
-    return "{$this->getBaseUrl()}/{$encoded_doc_id}";
-  }
-
-  /**
-   * Generate a REST URL for translations of the given job item.
-   *
-   * @return the REST URL for the translations of the given job item for the
-   *         given locale.
-   */
-  private function getItemTranslationUrl(TMGMTJobItem $job_item) {
-    return $this->getItemUrl($job_item) . '/translations/' . $this->getLocale() . '?ext=comment';
+    return $this->restclient->getEditorUrl();
   }
 
   /**
@@ -155,30 +63,111 @@ class TmgmtZanataConnector {
    */
   public function pollTranslations() {
     $job = $this->job;
-    $base_options = $this->getBaseOptions();
+    $base_options = $this->restclient->getBaseOptions();
 
     $count_items_with_changes = 0;
     $count_strings_changed = 0;
+    $response = null;
+    $entire_translations = null;
 
     foreach ($job->getItems() as $job_item) {
-      $url = $this->getItemTranslationUrl($job_item);
-      $options = $base_options;
 
-      /* TODO consider skipping any item that is marked as completed, to avoid
-       * excess network traffic. This would miss translations that have been
-       * updated since the last check.
-       */
-      $this->setEtagHeaderFromItem($options, $job_item);
+      $html_node_content = $this->determineNodeContentFormat($job_item);
 
+      if (!$html_node_content) {
+        $url = $this->restclient->getItemTranslationUrl($job_item);
+        $options = $base_options;
 
-      $response = drupal_http_request($url, $options);
+        /* TODO consider skipping any item that is marked as completed, to avoid
+         * excess network traffic. This would miss translations that have been
+         * updated since the last check.
+         */
+        $this->setEtagHeaderFromItem($options, $job_item);
+        $response = $this->restclient->process_request($url, $options);
+
+      } else {
+
+        // determine what all documents belong to this job_item
+        // and from all docs, filter html ones
+        global $docId;
+        $docId = $this->restclient->getDocId($job_item);
+        $docsList = array();
+        $url = $this->restclient->getDocsListUrl();
+        $options = $base_options;
+        $response = $this->restclient->process_request($url, $options);
+        $data = drupal_json_decode($response->data);
+
+        foreach ($data as $doc) {
+          array_push($docsList, $doc['name']);
+        }
+
+        function filter_docs($value) {
+          global $docId;
+          return strstr($value, $docId);
+        }
+
+        function filter_html_docs($value) {
+          return strstr($value, 'html');
+        }
+
+        $related_docs = array_filter($docsList, 'filter_docs');
+        $html_docs = array_filter($related_docs, 'filter_html_docs');
+        $non_html_docs = array_diff($related_docs, $html_docs);
+
+        // collect translations (html responses) for html and non-html docs
+        $non_html_docs_translations = array();
+        $html_docs_translations = array();
+
+        foreach ($non_html_docs as $index => $doc) {
+          if ($doc == $docId) {
+            $url = $this->restclient->getItemTranslationUrl($job_item);
+            $options = $base_options;
+            $response = $this->restclient->process_request($url, $options);
+            $non_html_docs_translations[$doc] = drupal_json_decode($response->data);
+          }
+        }
+
+        foreach ($html_docs as $index => $doc) {
+          // check stats
+          $url = $this->restclient->getDocStatsUrl($doc);
+          $options = $this->restclient->getBaseOptions();
+          $response = $this->restclient->process_request($url, $options);
+          $translation_threshold = $this->getTranslationThreshold(
+              drupal_json_decode($response->data)
+          );
+
+          if ($translation_threshold >= $this->threshold) {
+            // download file
+            $url = $this->restclient->getFileDownloadUrl($doc);
+            $options = $this->restclient->getBaseOptions(
+                'application/octet-stream', 'application/octet-stream'
+            );
+            $response = $this->restclient->process_request($url, $options, true);
+            $html_docs_translations[$doc] = $this->createItemResponse(
+                rtrim(substr($doc, strlen($docId.'.')), '.html'), $response->data
+            );
+          }
+        }
+
+        // merge all the translations received from server
+        $entire_translations = array_merge($non_html_docs_translations, $html_docs_translations);
+
+      }
 
       switch ($response->code) {
         case 200:
-          $data = drupal_json_decode($response->data);
-          $targets = $data['textFlowTargets'];
+          $targets = null;
+          if (!$html_node_content) {
+            $data = drupal_json_decode($response->data);
+            $targets = $data['textFlowTargets'];
+          } else {
+            $targets = $this->combineTextFlowTargets($entire_translations);
+          }
 
-          if ($this->useSegmentation) {
+          if ($this->useSegmentation and $html_node_content) {
+            $translated = $this->processUnsegmentedTranslations($targets);
+          }
+          elseif ($this->useSegmentation) {
             $translated = $this->processTranslatedSegments($job_item, $targets);
           }
           else {
@@ -368,39 +357,13 @@ class TmgmtZanataConnector {
     return reset($remote_mappings);
   }
 
-
-  /**
-   * Get the remote locale for the translation job.
-   */
-  private function getLocale() {
-    return $this->controller->mapToRemoteLanguage($this->translator,
-                                                  $this->job->target_language);
-  }
-
-  /**
-   * Generate some common options for a HTTP request.
-   *
-   * @return options for a HTTP request that include authorization information
-   *         and content type headers.
-   */
-  public function getBaseOptions() {
-    return array(
-      'headers' => array(
-        'X-Auth-User' => $this->username,
-        'X-Auth-Token' => $this->apiKey,
-        'Content-Type' => 'application/json',
-        'Accept' => 'application/json',
-      ),
-    );
-  }
-
   /**
    * Request translation of all unsubmitted items in the job.
    */
   public function requestTranslation($skip_submitted = TRUE) {
     $all_submissions_worked = TRUE;
     $sent_translations_for_how_many = 0;
-    $base_options = $this->getBaseOptions();
+    $base_options = $this->restclient->getBaseOptions();
     $base_options['method'] = 'PUT';
     $email_contents = Array();
 
@@ -423,8 +386,9 @@ class TmgmtZanataConnector {
       $docTitle = $job_item->data['node_title']['#text'];
       global $base_url;
       $docDetails = array(
-        'docTitle' => $docTitle, 'docName' => $this->getDocId($job_item),
-        'zanataURL' => $this->getDocEditorUrl($job_item),
+        'docTitle' => $docTitle, 'docName' => $this->restclient->getDocId($job_item),
+        'zanataDocURL' => $this->restclient->getDocEditorUrl($job_item),
+        'editorURL' => $this->restclient->getEditorUrl(),
         'drupalURL' => $base_url.'/'.$docNode
       );
 
@@ -444,12 +408,12 @@ class TmgmtZanataConnector {
         t('All items have been submitted to Zanata for translation.'));
 
       // Send email notification
-      $emailSettings = $this->job->getTranslator()->getSetting('email');
-      $notificationEmail = $emailSettings['address'];
-      $emailSubject = 'Translation job submitted to Zanata for locale: '.$this->getLocale();
-      $body = $this->notification->formatEmailBody($email_contents, $this->getLocale());
+      $locale = $this->restclient->getLocale();
+      $notificationEmail = $this->emailSettings['address'];
+      $emailSubject = 'Translation job submitted to Zanata for locale: '.$locale;
+      $body = $this->notification->formatEmailBody($email_contents, $locale);
 
-      if ($emailSettings['notification'] and $notificationEmail){
+      if ($this->emailSettings['notification'] and $notificationEmail){
         $this->notification->send_drupal_mail('default_from', $notificationEmail, $emailSubject, $body);
       }
     }
@@ -467,7 +431,6 @@ class TmgmtZanataConnector {
           '@total' => count($this->job->getItems())
         ));
   }
-
 
   /**
    * Check for existing translations to send for a job item, and send them if
@@ -499,7 +462,7 @@ class TmgmtZanataConnector {
       return FALSE;
     }
 
-    $url = $this->getItemTranslationUrl($job_item);
+    $url = $this->restclient->getItemTranslationUrl($job_item);
 
     $data = array(
       'textFlowTargets' => $this->prepareTargets($trans_data, $job_item),
@@ -525,7 +488,7 @@ class TmgmtZanataConnector {
         return FALSE;
 
       case 404:
-        $this->showDocumentNotFoundErrorMessage($this->getDocId($job_item));
+        $this->showDocumentNotFoundErrorMessage($this->restclient->getDocId($job_item));
         return FALSE;
 
       case 401:
@@ -577,7 +540,7 @@ class TmgmtZanataConnector {
     }
 
     $items = array();
-    $document = $this->getDocId($job_item);
+    $document = $this->restclient->getDocId($job_item);
     foreach ($data as $key => $value) {
       $text = $value['#text'];
       $items[] = $this->createTranslationItem($key, $text, $document);
@@ -705,82 +668,168 @@ class TmgmtZanataConnector {
   }
 
   /**
+   * To determine content format is HTML or not.
+   *
+   * @param $job_item
+   * @return bool
+   */
+  private function determineNodeContentFormat($job_item) {
+    $html_content = null;
+
+    // check HTML segmentation setting
+    if ($this->translator->getSetting('segmentation') !== 'HTML') {
+      return FALSE;
+    }
+
+    // check html format for any of the elements
+    $job_data = $job_item->data;
+    foreach ($job_data as $node_field => $value_array) {
+      foreach ($value_array as $field => $contents) {
+        if (is_int($field) and array_key_exists('format', $contents) and
+            strstr($contents['format']['#text'], 'html')) {
+            return TRUE;
+        }
+      }
+    }
+    return FALSE;
+  }
+
+  /**
+   * @return array
+   */
+  private function getCommonData() {
+    $common_data = array(
+      // Required.
+        'contentType' => 'text/plain',
+      // Required.
+        'lang' => 'en-US',
+      // Required. Must be FILE, DOCUMENT or PAGE.
+        'type' => 'FILE',
+      // TODO look at using extensions for source comments.
+      // 'extensions' => array(),
+    );
+    return $common_data;
+  }
+
+  /**
+   * @param $haystack
+   * @param $needle
+   * @return bool
+   */
+  private function ends_with($haystack, $needle) {
+    return $needle === "" || (($temp = strlen($haystack) - strlen($needle))
+        >= 0 && strpos($haystack, $needle, $temp) !== false);
+  }
+
+  /**
    * Request translation for a single item.
    *
    * @return bool
    *   TRUE if the source was submitted successfully, FALSE otherwise
    */
   private function requestItemTranslation(TMGMTJobItem $job_item, $base_options) {
-    $url = $this->getItemUrl($job_item);
-    // Makes a copy.
-    $options = $base_options;
 
-    $common_data = array(
-      // Required.
-      'contentType' => 'text/plain',
-      // Required.
-      'lang' => 'en-US',
-      // Required. Must be FILE, DOCUMENT or PAGE.
-      'type' => 'FILE',
-      // TODO look at using extensions for source comments.
-      // 'extensions' => array(),
-    );
-    $data = $common_data;
+    $html_flag = $this->determineNodeContentFormat($job_item);
+    $html_doc = null;
+    $process_request_queue = array();
 
-    $data['textFlows'] = $this->prepareStrings($job_item);
+    if (!$html_flag) {
+      $url = $this->restclient->getItemUrl($job_item);
+      $options = $base_options;
+      $data = $this->getCommonData();
+      $data['textFlows'] = $this->prepareStrings($job_item);
+      $options['data'] = json_encode($data);
+      $process_request_queue[$url] =  $options;
 
-    $options['data'] = json_encode($data);
+    } else {
+
+      $job_item_data = new TmgmtZanataJobItemDataBuilder($job_item);
+      $job_item_contents = $job_item_data->process_node_contents();
+
+      foreach ($job_item_contents as $content) {
+        if ($content->is_html) {
+          $html_doc = $this->restclient->getDocId($job_item).'.'.$content->key.'.html';
+          $url = $this->restclient->getFileUploadUrl($html_doc);
+          $options = $base_options;
+          $options['data'] = $content->data;
+          $options = $this->restclient->handleFileUpload($options);
+          $process_request_queue[$url] =  $options;
+        } else {
+          $url = $this->restclient->getItemUrl($job_item);
+          $options = $base_options;
+          $data = $this->getCommonData();
+          $data['textFlows'] = array($this->createItem($content->key, $content->data));
+          $options['data'] = json_encode($data);
+          $process_request_queue[$url] = $options;
+        }
+      }
+    }
 
     /* TODO consider copytrans */
 
-    $response = drupal_http_request($url, $options);
+    // Pushing node contents to server
+    $rest_responses = array();
 
-    switch ($response->code) {
-      case 200:
-      case 201:
-        $doc_id = $this->getDocId($job_item);
-        $job_item->addMessage(
-          'Sent document: item "@title" sent to Zanata as document "@doc_id".',
-          array(
-            '@title' => $job_item->defaultLabel(),
-            '@doc_id' => $doc_id,
+    foreach ($process_request_queue as $url => $options) {
+      $response = $this->restclient->process_request($url, $options);
+      array_push($rest_responses, $response);
+
+      switch ($response->code) {
+        case 200:
+        case 201:
+          $doc_id = $this->ends_with($url, '.html') ? $html_doc : $this->restclient->getDocId($job_item);
+          $job_item->addMessage(
+              'Sent document: item "@title" sent to Zanata as document "@doc_id".',
+              array(
+                  '@title' => $job_item->defaultLabel(),
+                  '@doc_id' => $doc_id,
+              ));
+          // Add doc_id as remote_identifier_1, full URL as remote_url.
+          $job_item->addRemoteMapping(NULL, $doc_id, array(
+              'remote_url' => $url,
           ));
-        // Add doc_id as remote_identifier_1, full URL as remote_url.
-        $job_item->addRemoteMapping(NULL, $doc_id, array(
-          'remote_url' => $url,
-        ));
-        return TRUE;
+          break;
 
-      case 401:
-        $this->showAuthErrorMessage();
-        $job_item->addMessage(
-          'Item "@title" was not successfully sent to Zanata due to an authorization error.',
-          array(
-            '@title' => $job_item->defaultLabel(),
-            '@code' => $response->code,
-          ), 'error');
-        return FALSE;
+        case 401:
+          $this->showAuthErrorMessage();
+          $job_item->addMessage(
+              'Item "@title" was not successfully sent to Zanata due to an authorization error.',
+              array(
+                  '@title' => $job_item->defaultLabel(),
+                  '@code' => $response->code,
+              ), 'error');
+          break;
 
-      case 403:
-        $this->showPermissionErrorMessage();
-        return FALSE;
+        case 403:
+          $this->showPermissionErrorMessage();
+          break;
 
-      case 404:
-        $this->showNotFoundErrorMessage();
-        return FALSE;
+        case 404:
+          $this->showNotFoundErrorMessage();
+          break;
 
-      default:
-        $this->addSendSourceErrorToItem($job_item, $response);
-        return FALSE;
+        default:
+          $doc = $this->ends_with($url, '.html') ? $html_doc : $this->restclient->getDocId($job_item);
+          $this->addSendSourceErrorToItem($job_item, $response, $doc);
+          break;
+      }
     }
+
+    if(!function_exists("not_success_response")) {
+      function not_success_response($resp){
+        return !in_array($resp->code, array(200, 201));
+      }
+    }
+    $failed_responses = array_filter($rest_responses, 'not_success_response');
+    return empty($failed_responses);
   }
 
-  private function addSendSourceErrorToItem(TMGMTJobItem $job_item, $response) {
+  private function addSendSourceErrorToItem(TMGMTJobItem $job_item, $response, $doc) {
     if (isset($response->error)) {
       $job_item->addMessage(
         'Item "@title" was not successfully sent to Zanata. Status code: @code. Error: "@error"',
         array(
-          '@title' => $job_item->defaultLabel(),
+          '@title' => $doc,
           '@code' => $response->code,
           '@error' => $response->error,
         ), 'error');
@@ -789,7 +838,7 @@ class TmgmtZanataConnector {
       $job_item->addMessage(
         'Item "@title" was not successfully sent to Zanata. Status code: @code.',
         array(
-          '@title' => $job_item->defaultLabel(),
+          '@title' => $doc,
           '@code' => $response->code,
         ), 'error');
     }
@@ -875,4 +924,68 @@ class TmgmtZanataConnector {
     );
   }
 
+  /**
+   * @param $resId
+   * @param $content
+   * @return array
+   */
+  private function createItemResponse($resId, $content) {
+    $item_response = array();
+    $item_response['extensions'] = array();
+    $item_response['textFlowTargets'] = array();
+
+    $node = array(
+        'resId' => $resId,
+        'state' => 'Approved',
+        'translator' => array(),
+        'content' => $content,
+        'extensions' => array(),
+        'revision' => 1,
+        'textFlowRevision' => 1,
+    );
+
+    array_push($item_response['textFlowTargets'], $node);
+    return $item_response;
+  }
+
+  /**
+   * @param $translations
+   * @return array
+   */
+  private function combineTextFlowTargets($translations) {
+    $targets = array();
+    foreach ($translations as $node => $value) {
+        foreach ($value['textFlowTargets'] as $index => $text) {
+          array_push($targets, $text);
+        }
+    }
+    return $targets;
+  }
+
+  /**
+   * Calculates translation threshold
+   *
+   * @param $stats_data
+   * @return float
+   */
+  private function getTranslationThreshold($stats_data) {
+
+    $translated = 0;
+    $total = 0;
+
+    if (array_key_exists('stats', $stats_data)) {
+      $stats = $stats_data['stats'];
+      foreach ($stats as $index => $stat) {
+        foreach ($stat as $item => $value) {
+          if ($item === 'translated') {
+            $translated += $value;
+          } elseif ($item === 'total') {
+            $total += $value;
+          }
+        }
+      }
+    }
+
+    return ($translated * 100) / $total;
+  }
 }

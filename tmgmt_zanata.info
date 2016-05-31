@@ -8,5 +8,7 @@ files[] = tmgmt_zanata.notification.inc
 files[] = tmgmt_zanata.segmenter.inc
 files[] = tmgmt_zanata.connector.inc
 files[] = tmgmt_zanata.plugin.inc
+files[] = tmgmt_zanata.utils.inc
+files[] = tmgmt_zanata.rest.inc
 files[] = tmgmt_zanata.ui.inc
 files[] = tmgmt_zanata.test
