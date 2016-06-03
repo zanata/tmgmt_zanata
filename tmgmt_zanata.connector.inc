@@ -674,7 +674,6 @@ class TmgmtZanataConnector {
    * @return bool
    */
   private function determineNodeContentFormat($job_item) {
-    $html_content = null;
 
     // check HTML segmentation setting
     if ($this->translator->getSetting('segmentation') !== 'HTML') {
