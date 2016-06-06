@@ -25,6 +25,9 @@ class TmgmtZanataConnector {
 
   private $threshold;
 
+  private $count_items_with_changes;
+  private $count_strings_changed;
+
   /**
    * Create a new connector for the given job.
    *
@@ -48,6 +51,8 @@ class TmgmtZanataConnector {
 
     $this->threshold = 100;
 
+    $this->count_items_with_changes = 0;
+    $this->count_strings_changed = 0;
   }
 
   /**
@@ -59,14 +64,39 @@ class TmgmtZanataConnector {
   }
 
   /**
+   * Saves received translations to TMGMT job_item
+   *
+   * @param $job_item
+   * @param $response
+   * @param $translated
+   */
+  private function saveTranslations($job_item, $response, $translated) {
+
+    $expanded_translated = tmgmt_unflatten_data($translated);
+
+    $count_finished_before = $this->countFinishedTranslations($job_item);
+    $job_item->addTranslatedData($expanded_translated);
+    $count_finished_after = $this->countFinishedTranslations($job_item);
+
+    $delta_finished = $count_finished_after - $count_finished_before;
+    if ($delta_finished !== 0) {
+      $job_item->addMessage(format_plural($delta_finished,
+          '1 new translation fetched.',
+          '@count new translations fetched.'));
+      $this->count_items_with_changes++;
+      $this->count_strings_changed += $delta_finished;
+    }
+
+    $this->saveResponseEtagForItem($response, $job_item);
+  }
+
+  /**
    * Check for and download available translations from Zanata server.
    */
   public function pollTranslations() {
     $job = $this->job;
     $base_options = $this->restclient->getBaseOptions();
 
-    $count_items_with_changes = 0;
-    $count_strings_changed = 0;
     $response = null;
     $entire_translations = null;
 
@@ -85,6 +115,22 @@ class TmgmtZanataConnector {
         $this->setEtagHeaderFromItem($options, $job_item);
         $response = $this->restclient->process_request($url, $options);
 
+        if ($response->code == 200) {
+
+          $data = drupal_json_decode($response->data);
+          $targets = $data['textFlowTargets'];
+
+          if ($this->useSegmentation) {
+            $translated = $this->processTranslatedSegments($job_item, $targets);
+          } else {
+            $translated = $this->processUnsegmentedTranslations($targets);
+          }
+          $this->saveTranslations($job_item, $response, $translated);
+
+        } else {
+          $this->switchResponseCode($response, $job_item, $url);
+        }
+
       } else {
 
         // determine what all documents belong to this job_item
@@ -101,29 +147,40 @@ class TmgmtZanataConnector {
           array_push($docsList, $doc['name']);
         }
 
-        function filter_docs($value) {
-          global $docId;
-          return strstr($value, $docId);
+        if(!function_exists("filter_docs")) {
+          function filter_docs($value) {
+            global $docId;
+            return strstr($value, $docId);
+          }
         }
 
-        function filter_html_docs($value) {
-          return strstr($value, 'html');
+        if(!function_exists("filter_html_docs")) {
+          function filter_html_docs($value)
+          {
+            return strstr($value, '.html');
+          }
         }
 
         $related_docs = array_filter($docsList, 'filter_docs');
         $html_docs = array_filter($related_docs, 'filter_html_docs');
         $non_html_docs = array_diff($related_docs, $html_docs);
 
-        // collect translations (html responses) for html and non-html docs
-        $non_html_docs_translations = array();
-        $html_docs_translations = array();
-
         foreach ($non_html_docs as $index => $doc) {
           if ($doc == $docId) {
             $url = $this->restclient->getItemTranslationUrl($job_item);
             $options = $base_options;
             $response = $this->restclient->process_request($url, $options);
-            $non_html_docs_translations[$doc] = drupal_json_decode($response->data);
+
+            if ($response->code == 200) {
+
+              $data = drupal_json_decode($response->data);
+              $targets = $data['textFlowTargets'];
+              $translated = $this->processUnsegmentedTranslations($targets);
+              $this->saveTranslations($job_item, $response, $translated);
+
+            } else {
+              $this->switchResponseCode($response, $job_item, $url);
+            }
           }
         }
 
@@ -132,99 +189,77 @@ class TmgmtZanataConnector {
           $url = $this->restclient->getDocStatsUrl($doc);
           $options = $this->restclient->getBaseOptions();
           $response = $this->restclient->process_request($url, $options);
-          $translation_threshold = $this->getTranslationThreshold(
-              drupal_json_decode($response->data)
-          );
+          if ($response->code == 200) {
+            $translation_threshold = $this->getTranslationThreshold(
+                drupal_json_decode($response->data)
+            );
 
-          if ($translation_threshold >= $this->threshold) {
-            // download file
-            $url = $this->restclient->getFileDownloadUrl($doc);
-            $options = $this->restclient->getBaseOptions(
-                'application/octet-stream', 'application/octet-stream'
-            );
-            $response = $this->restclient->process_request($url, $options, true);
-            $html_docs_translations[$doc] = $this->createItemResponse(
-                rtrim(substr($doc, strlen($docId.'.')), '.html'), $response->data
-            );
+            if ($translation_threshold >= $this->threshold) {
+              // download file
+              $url = $this->restclient->getFileDownloadUrl($doc);
+              $options = $this->restclient->getBaseOptions(
+                  'application/octet-stream', 'application/octet-stream'
+              );
+              $response = $this->restclient->process_request($url, $options, true);
+
+              if ($response->code == 200) {
+                $data = $this->createItemResponse(
+                    rtrim(substr($doc, strlen($docId . '.')), '.html'), $response->data
+                );
+                // save translations
+                $targets = $data['textFlowTargets'];
+                $translated = $this->processUnsegmentedTranslations($targets);
+                $this->saveTranslations($job_item, $response, $translated);
+
+              } else {
+                $this->switchResponseCode($response, $job_item, $url);
+              }
+            }
           }
         }
-
-        // merge all the translations received from server
-        $entire_translations = array_merge($non_html_docs_translations, $html_docs_translations);
-
       }
 
-      switch ($response->code) {
-        case 200:
-          $targets = null;
-          if (!$html_node_content) {
-            $data = drupal_json_decode($response->data);
-            $targets = $data['textFlowTargets'];
-          } else {
-            $targets = $this->combineTextFlowTargets($entire_translations);
-          }
+      if ($this->count_items_with_changes === 0) {
+        $job->addMessage('Checked for translations. No new translations were available.');
+      } else {
+        $job->addMessage(format_plural($this->count_items_with_changes,
+            'Checked for translations. Fetched new translations for 1 node (total translations: @new_translations).',
+            'Checked for translations. Fetched new translations for @count nodes (total translations: @new_translations).',
+            array(
+                '@new_translations' => $this->count_strings_changed
+            )));
+      }
+    }
+  }
 
-          if ($this->useSegmentation and $html_node_content) {
-            $translated = $this->processUnsegmentedTranslations($targets);
-          }
-          elseif ($this->useSegmentation) {
-            $translated = $this->processTranslatedSegments($job_item, $targets);
-          }
-          else {
-            $translated = $this->processUnsegmentedTranslations($targets);
-          }
+  /**
+   * Handles REST responses which are not succeed
+   *
+   * @param $response
+   * @param $job_item
+   * @param $url
+   */
+  private function switchResponseCode($response, $job_item, $url) {
+    switch ($response->code) {
+      case 304:
+        // Not modified (i.e. etag matches).
+        break;
 
-          $expanded_translated = tmgmt_unflatten_data($translated);
+      case 401:
+        $this->showAuthErrorMessage();
+        break;
 
-          $count_finished_before = $this->countFinishedTranslations($job_item);
-          $job_item->addTranslatedData($expanded_translated);
-          $count_finished_after = $this->countFinishedTranslations($job_item);
+      case 404:
+        // No translations are available yet.
+        break;
 
-          $delta_finished = $count_finished_after - $count_finished_before;
-          if ($delta_finished !== 0) {
-            $job_item->addMessage(format_plural($delta_finished,
-              '1 new translation fetched.',
-              '@count new translations fetched.'));
-            $count_items_with_changes++;
-            $count_strings_changed += $delta_finished;
-          }
-
-
-          $this->saveResponseEtagForItem($response, $job_item);
-          break;
-
-        case 304:
-          // Not modified (i.e. etag matches).
-          break;
-
-        case 401:
-          $this->showAuthErrorMessage();
-          break;
-
-        case 404:
-          // No translations are available yet.
-          break;
-
-        default:
-          drupal_set_message(
+      default:
+        drupal_set_message(
             t('There was a problem fetching translations from the service. See messages below.'),
             'warning',
             FALSE);
-          $this->addPollTranslationErrorToItem($job_item, $response, $url);
-          break;
-      }
-    }
-
-    if ($count_items_with_changes === 0) {
-      $job->addMessage('Checked for translations. No new translations were available.');
-    }
-    else {
-      $job->addMessage(format_plural($count_items_with_changes,
-        'Checked for translations. Fetched new translations for 1 node (total translations: @new_translations).',
-        'Checked for translations. Fetched new translations for @count nodes (total translations: @new_translations).',
-        array(
-          '@new_translations' => $count_strings_changed
-        )));
+        $this->addPollTranslationErrorToItem($job_item, $response, $url);
+        break;
     }
   }
 

@@ -32,13 +32,17 @@ class TmgmtZanataJobItemDataBuilder {
             $other_fields = array();
             switch ($node_field) {
                 case 'node_title':
-                    $this->node_title = $field_details; break;
+                    $this->node_title = $field_details;
+                    break;
                 case 'notes':
-                    $this->node_notes = $field_details; break;
+                    $this->node_notes = $field_details;
+                    break;
                 case 'head':
-                    $this->node_head = $field_details; break;
+                    $this->node_head = $field_details;
+                    break;
                 case 'body':
-                    $this->node_body = $field_details; break;
+                    $this->node_body = $field_details;
+                    break;
                 default:
                     $other_fields[$node_field] = $field_details;
                     break;
@@ -83,7 +87,7 @@ class TmgmtZanataJobItemDataBuilder {
      * @param $src_msg_keys tmgmt_flatten_data keys
      * @return array format to value mappings
      */
-    private function value_format_mapping($src_msg_keys) {
+    private function format_value_mapping($src_msg_keys) {
         $values = array();
         $formats = array();
         $others = array();
@@ -118,7 +122,7 @@ class TmgmtZanataJobItemDataBuilder {
     public function process_node_contents() {
 
         $node_contents = array();
-        foreach ($this->value_format_mapping(array_keys($this->flatten_source)) as $format => $value) {
+        foreach ($this->format_value_mapping(array_keys($this->flatten_source)) as $format => $value) {
             if (is_int($format)) {
                 array_push($node_contents, new NodeFieldContent($value, $this->flatten_source[$value]));
             } else {
