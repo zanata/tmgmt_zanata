@@ -80,10 +80,14 @@ class TMGMTZanataTranslatorUIController extends TMGMTDefaultTranslatorUIControll
     );
     $emailSettings = $translator->getSetting('email');
     $form['email']['notification'] = array(
-        '#type' => 'checkbox',
-        '#title' => t('Send an email when a job is created'),
+        '#type' => 'radios',
+        '#title' => t('Send an email when translation jobs are submitted'),
         '#description' => t(
             'The email shows the requested language, and a list of documents with links to view the source and translations.'),
+        '#options' => array(
+            'express' => t('Express Checkout: lesser emails as this will group docs by languages.'),
+            'default' => t('Normal Checkout: emails created per language basis for a set of docs.'),
+        ),
         '#default_value' => $emailSettings['notification'],
     );
     $form['email']['address'] = array(

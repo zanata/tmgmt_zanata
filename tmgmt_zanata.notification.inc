@@ -35,10 +35,16 @@ class TMGMTZanataTranslatorNotification {
 
     /**
      * Function to format notification email body
+     *
+     * @param $email_contents   Email Contents
+     * @param $locale           Locale
+     * @param string $type      Checkout Type (default, express)
+     * @param string $format    Email Format (plain, html)
+     * @return string           Email Body
      */
-    public function formatEmailBody($email_contents, $locale, $type='PLAIN'){
+    public function formatEmailBody($email_contents, $locale, $type="default", $format="PLAIN"){
         $msg = "A translation job has been submitted to Zanata from '".$this->pageTitle."'. Details:";
-        if ($type === 'HTML') {
+        if ($format === 'HTML' and $type === 'default') {
             $msgBody = "<html><body>";
             $msgBody .= "<h3>Hello,</h3>";
             $msgBody .= "<br/><br/>";
@@ -72,6 +78,28 @@ class TMGMTZanataTranslatorNotification {
             $msgBody .= "Zanata Team";
             $msgBody .= "</body></html>";
         }
+        else if($type === "express") {
+            $msgBody = "Hello,\n\n";
+            $msgBody .= $msg."\n";
+            $msgBody .= "Language(s): " .join(' ', $locale). "\n\n";
+            foreach ($email_contents['locales'] as $locale => $editor) {
+                $msgBody .= "For language: ".$locale.",\n";
+                $msgBody .= "Zanata URL: ".$editor."\n\n";
+            }
+            $msgBody .= "\n";
+            $msgBody .= "Documents...\n\n";
+            foreach ($email_contents['docs'] as $doc_path => $title_url) {
+                $msgBody .= "Path: ".$doc_path."\n";
+                $msgBody .= "Document: ".$title_url['title']."\n";
+                $msgBody .= "Drupal URL: ".$title_url['drupal']."\n\n";
+            }
+            $msgBody .= "\n";
+            $msgBody .= "Requester...\n\n";
+            $msgBody .= "Name: ".$this->requesterName."\n";
+            $msgBody .= "Email: ".$this->requesterEmail."\n";
+            $msgBody .= "\n\n";
+            $msgBody .= "Zanata Team";
+        }
         else {
             $msgBody = "Hello,\n\n";
             $msgBody .= $msg."\n";
@@ -96,6 +124,12 @@ class TMGMTZanataTranslatorNotification {
 
     /**
      * Simple wrapper function for drupal_mail()
+     *
+     * @param string $from
+     * @param $to
+     * @param $subject
+     * @param $message
+     * @return bool
      */
     public function send_drupal_mail($from = 'default_from', $to, $subject, $message) {
         $module = 'tmgmt_zanata';
