@@ -1040,7 +1040,7 @@ class TmgmtZanataConnector {
           global $base_url;
           $docs[$doc_path] = array(
               'title' => $doc_title,
-              'drupal' => $base_url.'/'.$doc_path
+              'drupal' => $base_url . '/' . $doc_path
           );
         }
       }
@@ -1059,7 +1059,7 @@ class TmgmtZanataConnector {
 
     // Send email notification
     $notificationEmail = $this->emailSettings['address'];
-    $emailSubject = 'Translation job submitted to Zanata for '.count($locales).' languages.';
+    $emailSubject = 'Translation job submitted to Zanata for ' . count($locales) . ' languages.';
     $body = $this->notification->formatEmailBody($email_contents, $locales, "express");
 
     if ($this->emailSettings['notification'] === 'express' and $notificationEmail){
