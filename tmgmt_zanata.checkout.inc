@@ -7,7 +7,8 @@
  */
 
 /**
- * Express checkout form, used when there are 2 or more jobs to check out.
+ * Express checkout form. Used to specify job name and translator plugin on a single
+ * form for a set of languages, instead of one form per language.
  */
 function tmgmt_zanata_express_checkout_form($form, &$form_state) {
 

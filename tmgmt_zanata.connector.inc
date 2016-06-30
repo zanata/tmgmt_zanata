@@ -420,14 +420,9 @@ class TmgmtZanataConnector {
       $docNode = $job_item->item_type.'/'.$job_item->item_id;
       $docTitle = $job_item->data['node_title']['#text'];
       global $base_url;
-      $docDetails = array(
-        'docTitle' => $docTitle, 'docName' => $this->restclient->getDocId($job_item),
-        'zanataDocURL' => $this->restclient->getDocEditorUrl($job_item),
-        'editorURL' => $this->getEditorUrl(),
-        'drupalURL' => $base_url.'/'.$docNode
-      );
-
-      array_push($email_contents, $docDetails);
+      $email_contents['locales'] = array($this->restclient->getLocale() =>
+          $this->restclient->getEditorUrl());
+      $email_contents['docs'][$docNode] = array('title' => $docTitle, 'drupal' => $base_url.'/'.$docNode);
 
       $submitted = $this->requestItemTranslation($job_item, $base_options);
       $all_submissions_worked = $submitted && $all_submissions_worked;
@@ -445,8 +440,8 @@ class TmgmtZanataConnector {
       // Send email notification
       $locale = $this->restclient->getLocale();
       $notificationEmail = $this->emailSettings['address'];
-      $emailSubject = 'Translation job submitted to Zanata for locale: '.$locale;
-      $body = $this->notification->formatEmailBody($email_contents, $locale);
+      $emailSubject = 'Translation job submitted to Zanata for locale: ' . $locale;
+      $body = $this->notification->formatEmailBody($email_contents);
 
       if ($this->emailSettings['notification'] === 'default' and $notificationEmail){
         $this->notification->send_drupal_mail('default_from', $notificationEmail, $emailSubject, $body);
@@ -1059,8 +1054,12 @@ class TmgmtZanataConnector {
 
     // Send email notification
     $notificationEmail = $this->emailSettings['address'];
-    $emailSubject = 'Translation job submitted to Zanata for ' . count($locales) . ' languages.';
-    $body = $this->notification->formatEmailBody($email_contents, $locales, "express");
+    if (count($locales) == 1) {
+      $emailSubject = 'Translation job submitted to Zanata for locale: ' . $locales[0];
+    } else {
+      $emailSubject = 'Translation job submitted to Zanata for ' . count($locales) . ' languages.';
+    }
+    $body = $this->notification->formatEmailBody($email_contents);
 
     if ($this->emailSettings['notification'] === 'express' and $notificationEmail){
       $this->notification->send_drupal_mail('default_from', $notificationEmail, $emailSubject, $body);

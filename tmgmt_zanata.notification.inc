@@ -36,89 +36,31 @@ class TMGMTZanataTranslatorNotification {
     /**
      * Function to format notification email body
      *
-     * @param $email_contents   Email Contents
-     * @param $locale           Locale
-     * @param string $type      Checkout Type (default, express)
-     * @param string $format    Email Format (plain, html)
-     * @return string           Email Body
+     * @param $email_contents   array()
+     * @return string           string
      */
-    public function formatEmailBody($email_contents, $locale, $type="default", $format="PLAIN"){
+    public function formatEmailBody($email_contents){
         $msg = "A translation job has been submitted to Zanata from '".$this->pageTitle."'. Details:";
-        if ($format === 'HTML' and $type === 'default') {
-            $msgBody = "<html><body>";
-            $msgBody .= "<h3>Hello,</h3>";
-            $msgBody .= "<br/><br/>";
-            $msgBody .= $msg;
-            $msgBody .= "<br/>";
-            $msgBody .= "Locale: ".$locale;
-            $msgBody .= "<br/>";
-            $msgBody .= "Documents...";
-            $msgBody .= "<br/>";
-            $msgBody .= "<table rules='all' style='border-color: #666;' cellpadding='10'>";
-            $msgBody .= "<tr align='left' style='background: #eee;'><td><strong>Title</strong></td>";
-            $msgBody .= "<td><strong>Name in Zanata</strong></td>";
-            $msgBody .= "<td><strong>Zanata URL</strong></td><td><strong>Drupal URL</strong></td></tr>";
-
-            foreach ($email_contents as $content) {
-                $msgBody .= "<tr>";
-                $msgBody .= "<td>" . $content['docTitle'] . "</td>";
-                $msgBody .= "<td>" . $content['docName'] . "</td>";
-                $msgBody .= "<td><a href=\"" . $content['zanataDocURL'] . "\">translate document in Zanata</a></td>";
-                $msgBody .= "<td><a href=\"" . $content['editorURL'] . "\">translate in Zanata</a></td>";
-                $msgBody .= "<td><a href=\"" . $content['drupalURL'] . "\">view source document</a></td>";
-                $msgBody .= "</tr>";
-            }
-
-            $msgBody .= "</table>";
-            $msgBody .= "<br/>";
-            $msgBody .= "Requester..."."<br/>";
-            $msgBody .= "Name: ".$this->requesterName."<br/>";
-            $msgBody .= "Email: ".$this->requesterEmail."<br/>";
-            $msgBody .= "<br/><br/>";
-            $msgBody .= "Zanata Team";
-            $msgBody .= "</body></html>";
+        $msgBody = "Hello,\n\n";
+        $msgBody .= $msg."\n";
+        $msgBody .= "Language(s): " .join(' ', array_keys($email_contents['locales'])). "\n\n";
+        foreach ($email_contents['locales'] as $locale => $editor) {
+            $msgBody .= "For language: ".$locale.",\n";
+            $msgBody .= "Zanata URL: ".$editor."\n\n";
         }
-        else if($type === "express") {
-            $msgBody = "Hello,\n\n";
-            $msgBody .= $msg."\n";
-            $msgBody .= "Language(s): " .join(' ', $locale). "\n\n";
-            foreach ($email_contents['locales'] as $locale => $editor) {
-                $msgBody .= "For language: ".$locale.",\n";
-                $msgBody .= "Zanata URL: ".$editor."\n\n";
-            }
-            $msgBody .= "\n";
-            $msgBody .= "Documents...\n\n";
-            foreach ($email_contents['docs'] as $doc_path => $title_url) {
-                $msgBody .= "Path: ".$doc_path."\n";
-                $msgBody .= "Document: ".$title_url['title']."\n";
-                $msgBody .= "Drupal URL: ".$title_url['drupal']."\n\n";
-            }
-            $msgBody .= "\n";
-            $msgBody .= "Requester...\n\n";
-            $msgBody .= "Name: ".$this->requesterName."\n";
-            $msgBody .= "Email: ".$this->requesterEmail."\n";
-            $msgBody .= "\n\n";
-            $msgBody .= "Zanata Team";
+        $msgBody .= "\n";
+        $msgBody .= "Documents...\n\n";
+        foreach ($email_contents['docs'] as $doc_path => $title_url) {
+            $msgBody .= "Path: ".$doc_path."\n";
+            $msgBody .= "Document: ".$title_url['title']."\n";
+            $msgBody .= "Drupal URL: ".$title_url['drupal']."\n\n";
         }
-        else {
-            $msgBody = "Hello,\n\n";
-            $msgBody .= $msg."\n";
-            $msgBody .= "Locale: ".$locale."\n\n";
-            $msgBody .= "Documents...\n\n";
-            foreach ($email_contents as $content) {
-                $msgBody .= "Doc Title: ".$content['docTitle']."\n";
-                $msgBody .= "Name in Zanata: ".$content['docName']."\n";
-                $msgBody .= "Zanata URL: ".$content['editorURL']."\n";
-                $msgBody .= "Document URL: ".$content['zanataDocURL']."\n";
-                $msgBody .= "Drupal URL: ".$content['drupalURL']."\n\n";
-            }
-            $msgBody .= "\n";
-            $msgBody .= "Requester...\n\n";
-            $msgBody .= "Name: ".$this->requesterName."\n";
-            $msgBody .= "Email: ".$this->requesterEmail."\n";
-            $msgBody .= "\n\n";
-            $msgBody .= "Zanata Team";
-        }
+        $msgBody .= "\n";
+        $msgBody .= "Requester...\n\n";
+        $msgBody .= "Name: ".$this->requesterName."\n";
+        $msgBody .= "Email: ".$this->requesterEmail."\n";
+        $msgBody .= "\n\n";
+        $msgBody .= "Zanata Team";
         return $msgBody;
     }
 
