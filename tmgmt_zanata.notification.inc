@@ -28,8 +28,8 @@ class TMGMTZanataTranslatorNotification {
         $this->fromEmail = 'no-reply@zanata.org';
 
         global $user;
-        $this->requesterName = $user->name;
-        $this->requesterEmail = $user->mail;
+        $this->requesterName = property_exists($user, "name") ? $user->name : NULL;
+        $this->requesterEmail = property_exists($user, "mail") ? $user->mail : NULL;
 
     }
 
@@ -55,10 +55,12 @@ class TMGMTZanataTranslatorNotification {
             $msgBody .= "Document: ".$title_url['title']."\n";
             $msgBody .= "Drupal URL: ".$title_url['drupal']."\n\n";
         }
-        $msgBody .= "\n";
-        $msgBody .= "Requester...\n\n";
-        $msgBody .= "Name: ".$this->requesterName."\n";
-        $msgBody .= "Email: ".$this->requesterEmail."\n";
+        if ($this->requesterName and $this->requesterEmail) {
+            $msgBody .= "\n";
+            $msgBody .= "Requester...\n\n";
+            $msgBody .= "Name: ".$this->requesterName."\n";
+            $msgBody .= "Email: ".$this->requesterEmail."\n";
+        }
         $msgBody .= "\n\n";
         $msgBody .= "Zanata Team";
         return $msgBody;
