@@ -70,3 +70,53 @@ function tmgmt_zanata_cron(){
         }
     }
 }
+
+/**
+ * Implements hook_menu()
+ */
+function tmgmt_zanata_menu() {
+    $items = array();
+
+    $items['admin/tmgmt/express_checkout'] = array(
+        'title' => 'TMGMT Express Checkout',
+        'description' => 'Express checkout for TMGMT jobs',
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('tmgmt_zanata_express_checkout_form'),
+        'access callback' => TRUE,
+        // this prevents the form displaying in the main navigation menu
+        'menu_name' => 'tmgmt_express_checkout',
+        'file' => 'tmgmt_zanata.checkout.inc',
+    );
+
+    return $items;
+}
+
+/**
+ * Implements hook_tmgmt_ui_job_checkout_before_alter()
+ *
+ * Called when jobs have been created, but before all the individual checkout
+ * forms. Jobs and redirects can be modified here to change the checkout
+ * workflow.
+ */
+function tmgmt_zanata_tmgmt_ui_job_checkout_before_alter(&$redirects, &$jobs) {
+
+    // Array of [name => label]
+    $translators = tmgmt_translator_labels();
+
+    // reset pointer to first element
+    reset($translators);
+    // get key at pointer
+    $default_translator = key($translators);
+
+    // save the job ids in the session, for use by the express checkout form
+    $job_ids = array();
+    foreach ($jobs as $job) {
+        $job_ids[] = $job->tjid;
+    }
+    if (!isset($_SESSION['tmgmt_express_checkout'])) {
+        $_SESSION['tmgmt_express_checkout'] = array();
+    }
+    $_SESSION['tmgmt_express_checkout']['job_ids'] = $job_ids;
+
+    $redirects[] = 'admin/tmgmt/express_checkout';
+}
