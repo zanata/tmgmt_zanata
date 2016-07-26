@@ -50,7 +50,7 @@ class TMGMTZanataTranslatorRESTClient {
      */
     public function getEditorUrl() {
         $locale = $this->getLocale();
-        return "{$this->serverUrl}/webtrans/Application.seam?project={$this->projectId}"
+        return "{$this->serverUrl}/webtrans/translate?project={$this->projectId}"
         . "&iteration={$this->versionId}&localeId={$locale}&locale=en";
     }
 
