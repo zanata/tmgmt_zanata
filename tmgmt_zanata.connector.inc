@@ -16,6 +16,7 @@ class TmgmtZanataConnector {
 
   private $segmenter;
   private $emailSettings;
+  private $sendtrans;
 
   private $job;
   private $translator;
@@ -39,6 +40,7 @@ class TmgmtZanataConnector {
 
     $this->emailSettings = $translator->getSetting('email');
     $segmentation = $translator->getSetting('segmentation');
+    $this->sendtrans = $translator->getSetting('sendtrans');
     $this->useSegmentation = $segmentation != 'NONE';
     // TODO only create if $useSegmentation
     $this->segmenter = new TmgmtZanataSegmenter($segmentation);
@@ -463,6 +465,39 @@ class TmgmtZanataConnector {
   }
 
   /**
+   * Filter resId which hold status among $states
+   *
+   * @param $data
+   * @param $states
+   * @return array
+   */
+  private function filter_resid($data, $states) {
+    $filtered_resId = array();
+    foreach ($data['textFlowTargets'] as $segment) {
+      if (in_array($segment['state'], $states)) {
+        array_push($filtered_resId, $segment['resId']);
+      }
+    }
+    return $filtered_resId;
+  }
+
+  /**
+   * Filter translations as per filtered resId
+   *
+   * @param $trans_data
+   * @param $resIds
+   * @return mixed
+   */
+  private function filter_trans_data($trans_data, $resIds) {
+    foreach ($trans_data['textFlowTargets'] as $index => $segment) {
+      if (!in_array($segment['resId'], $resIds)) {
+        unset($trans_data['textFlowTargets'][$index]);
+      }
+    }
+    return $trans_data;
+  }
+
+  /**
    * Check for existing translations to send for a job item, and send them if
    * they are found.
    *
@@ -485,7 +520,7 @@ class TmgmtZanataConnector {
       return FALSE;
     }
 
-    $trans_data = $this->getExistingTransData($job_item);
+    $trans_data = $this->sendtrans ? $this->getExistingTransData($job_item) : NULL;
 
     if ($trans_data === NULL) {
       // no existing translations found. Probably don't need a log message.
@@ -497,6 +532,24 @@ class TmgmtZanataConnector {
     $data = array(
       'textFlowTargets' => $this->prepareTargets($trans_data, $job_item),
     );
+
+    // fetch translation status per resId
+    $http_options = $base_options;
+    $http_options['method'] = 'GET';
+    $get_response = $this->restclient->process_request($url, $http_options);
+
+    if ($get_response->code != '200') {
+      // translations could not be fetched from Zanata.
+      return FALSE;
+    }
+
+    // state for which translations can be replaced
+    $trans_states = array("New", "Untranslated");
+    $filtered_resId = $this->filter_resid(
+        json_decode($get_response->data, true), $trans_states
+    );
+    // overwrite translation data
+    $data = $this->filter_trans_data($data, $filtered_resId);
 
     // makes a copy
     $options = $base_options;

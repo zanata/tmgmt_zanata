@@ -40,29 +40,34 @@ class TMGMTZanataTranslatorNotification {
      * @return string           string
      */
     public function formatEmailBody($email_contents){
-        $msg = "A translation job has been submitted to Zanata from '".$this->pageTitle."'. Details:";
-        $msgBody = "Hello,\n\n";
-        $msgBody .= $msg."\n";
-        $msgBody .= "Language(s): " .join(' ', array_keys($email_contents['locales'])). "\n\n";
-        foreach ($email_contents['locales'] as $locale => $editor) {
-            $msgBody .= "For language: ".$locale.",\n";
-            $msgBody .= "Zanata URL: ".$editor."\n\n";
-        }
-        $msgBody .= "\n";
-        $msgBody .= "Documents...\n\n";
-        foreach ($email_contents['docs'] as $doc_path => $title_url) {
-            $msgBody .= "Path: ".$doc_path."\n";
-            $msgBody .= "Document: ".$title_url['title']."\n";
-            $msgBody .= "Drupal URL: ".$title_url['drupal']."\n\n";
-        }
-        if ($this->requesterName and $this->requesterEmail) {
+
+        $msgBody = "";
+        if (array_key_exists("locales", $email_contents) and array_key_exists("docs", $email_contents))
+        {
+            $msg = "A translation job has been submitted to Zanata from '".$this->pageTitle."'. Details:";
+            $msgBody = "Hello,\n\n";
+            $msgBody .= $msg."\n";
+            $msgBody .= "Language(s): " .join(' ', array_keys($email_contents['locales'])). "\n\n";
+            foreach ($email_contents['locales'] as $locale => $editor) {
+                $msgBody .= "For language: ".$locale.",\n";
+                $msgBody .= "Zanata URL: ".$editor."\n\n";
+            }
             $msgBody .= "\n";
-            $msgBody .= "Requester...\n\n";
-            $msgBody .= "Name: ".$this->requesterName."\n";
-            $msgBody .= "Email: ".$this->requesterEmail."\n";
+            $msgBody .= "Documents...\n\n";
+            foreach ($email_contents['docs'] as $doc_path => $title_url) {
+                $msgBody .= "Path: ".$doc_path."\n";
+                $msgBody .= "Document: ".$title_url['title']."\n";
+                $msgBody .= "Drupal URL: ".$title_url['drupal']."\n\n";
+            }
+            if ($this->requesterName and $this->requesterEmail) {
+                $msgBody .= "\n";
+                $msgBody .= "Requester...\n\n";
+                $msgBody .= "Name: ".$this->requesterName."\n";
+                $msgBody .= "Email: ".$this->requesterEmail."\n";
+            }
+            $msgBody .= "\n\n";
+            $msgBody .= "Zanata Team";
         }
-        $msgBody .= "\n\n";
-        $msgBody .= "Zanata Team";
         return $msgBody;
     }
 
