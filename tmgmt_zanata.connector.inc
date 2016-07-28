@@ -520,8 +520,11 @@ class TmgmtZanataConnector {
       return FALSE;
     }
 
-    $trans_data = $this->sendtrans ? $this->getExistingTransData($job_item) : NULL;
+    if (!$this->sendtrans) {
+      return FALSE;
+    }
 
+    $trans_data = $this->getExistingTransData($job_item);
     if ($trans_data === NULL) {
       // no existing translations found. Probably don't need a log message.
       return FALSE;
