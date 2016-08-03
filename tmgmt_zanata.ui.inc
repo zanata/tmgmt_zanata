@@ -72,6 +72,13 @@ class TMGMTZanataTranslatorUIController extends TMGMTDefaultTranslatorUIControll
         'Automatically fetch new translations every time cron runs.'),
       '#default_value' => $translator->getSetting('transcheck'),
     );
+    $form['sendtrans'] = array(
+        '#type' => 'checkbox',
+        '#title' => t('Send translations to Zanata if they are found'),
+        '#description' => t(
+            'Check for translated documents when a translation job is created, and send the translations to Zanata. Translations will only be sent for strings that have not started translation in Zanata.'),
+        '#default_value' => $translator->getSetting('sendtrans'),
+    );
     $form['email'] = array(
         '#type' => 'fieldset',
         '#title' => t('Notification'),
