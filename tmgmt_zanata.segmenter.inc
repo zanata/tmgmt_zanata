@@ -39,18 +39,21 @@ class TmgmtZanataSegmenter {
       case 'PARAGRAPHS':
         $this->segmentRegex = $this::PARAGRAPH_REGEX;
         break;
+
       case 'SENTENCES':
         $this->segmentRegex = $this::SENTENCE_REGEX;
         break;
+
       case 'HTML':
       case 'NONE':
         // Regex purposely matches nothing so there will be a single segment.
         $this->segmentRegex = '/$^/';
         break;
+
       default:
         drupal_set_message(
           t('Segmentation type setting "@segtype" is not valid.',
-            array ('@segtype' => $segmentationType)),
+            array('@segtype' => $segmentationType)),
          'error');
         // TODO fail with error, since segmenter cannot behave sensibly.
     }
@@ -296,7 +299,7 @@ class TmgmtZanataSegmenter {
             // used below for the valid segment count, will be 1 here.
             $next_segment_index++;
             $skeleton_buffer = '';
-          } 
+          }
         }
       }
     }

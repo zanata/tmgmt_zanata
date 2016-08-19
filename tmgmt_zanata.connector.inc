@@ -59,7 +59,6 @@ class TmgmtZanataConnector {
 
   /**
    * the URL for the translation editor in Zanata.
-   *
    */
   public function getEditorUrl() {
     return $this->restclient->getEditorUrl();
@@ -99,8 +98,8 @@ class TmgmtZanataConnector {
     $job = $this->job;
     $base_options = $this->restclient->getBaseOptions();
 
-    $response = null;
-    $entire_translations = null;
+    $response = NULL;
+    $entire_translations = NULL;
 
     foreach ($job->getItems() as $job_item) {
 
@@ -202,7 +201,7 @@ class TmgmtZanataConnector {
               $options = $this->restclient->getBaseOptions(
                   'application/octet-stream', 'application/octet-stream'
               );
-              $response = $this->restclient->process_request($url, $options, true);
+              $response = $this->restclient->process_request($url, $options, TRUE);
 
               if ($response->code == 200) {
                 $data = $this->createItemResponse(
@@ -228,7 +227,7 @@ class TmgmtZanataConnector {
             'Checked for translations. Fetched new translations for 1 node (total translations: @new_translations).',
             'Checked for translations. Fetched new translations for @count nodes (total translations: @new_translations).',
             array(
-                '@new_translations' => $this->count_strings_changed
+              '@new_translations' => $this->count_strings_changed,
             )));
       }
     }
@@ -402,12 +401,11 @@ class TmgmtZanataConnector {
     $sent_translations_for_how_many = 0;
     $base_options = $this->restclient->getBaseOptions();
     $base_options['method'] = 'PUT';
-    $email_contents = Array();
+    $email_contents = array();
 
     // TODO record successful translation submission and skip it next time
     //      (may already be handled with the submitted check, but don't want
     //      failed translation send to cause re-send of source).
-
     foreach ($this->job->getItems() as $job_item) {
       if ($skip_submitted) {
         $mapping = $this->getRemoteMapping($job_item);
@@ -422,8 +420,9 @@ class TmgmtZanataConnector {
       $docNode = $job_item->item_type.'/'.$job_item->item_id;
       $docTitle = $job_item->data['node_title']['#text'];
       global $base_url;
-      $email_contents['locales'] = array($this->restclient->getLocale() =>
-          $this->restclient->getEditorUrl());
+      $email_contents['locales'] = array(
+        $this->restclient->getLocale() =>
+        $this->restclient->getEditorUrl());
       $email_contents['docs'][$docNode] = array('title' => $docTitle, 'drupal' => $base_url.'/'.$docNode);
 
       $submitted = $this->requestItemTranslation($job_item, $base_options);
@@ -460,7 +459,7 @@ class TmgmtZanataConnector {
       'Sent existing translations for @sent of @total nodes.',
         array(
           '@sent' => $sent_translations_for_how_many,
-          '@total' => count($this->job->getItems())
+          '@total' => count($this->job->getItems()),
         ));
   }
 
@@ -517,7 +516,7 @@ class TmgmtZanataConnector {
           '@id' => $id,
           '@type' => $job_item->item_type,
         ));
-      return FALSE;
+        return FALSE;
     }
 
     if (!$this->sendtrans) {
@@ -549,7 +548,7 @@ class TmgmtZanataConnector {
     // state for which translations can be replaced
     $trans_states = array("New", "Untranslated");
     $filtered_resId = $this->filter_resid(
-        json_decode($get_response->data, true), $trans_states
+        json_decode($get_response->data, TRUE), $trans_states
     );
     // overwrite translation data
     $data = $this->filter_trans_data($data, $filtered_resId);
@@ -650,7 +649,7 @@ class TmgmtZanataConnector {
         array(
           "object-type" => "comment",
           "space" => "preserve",
-          "value" => "Translation sent by tmgmt-zanata because it matches id \"$id\" in document \"$document\"."
+          "value" => "Translation sent by tmgmt-zanata because it matches id \"$id\" in document \"$document\".",
         ),
       ),
       'revision' => 1,
@@ -690,7 +689,7 @@ class TmgmtZanataConnector {
           '@lang' => $language,
           '@id' => $id,
         ));
-      return;
+        return;
     }
 
     $specific_trans = $translations[$language];
@@ -721,7 +720,7 @@ class TmgmtZanataConnector {
         '@id' => $id,
       ));
 
-    return $trans_data_matching_source;
+      return $trans_data_matching_source;
   }
 
   /**
@@ -744,7 +743,6 @@ class TmgmtZanataConnector {
     $node = $translated_node;
     $type = node_type_get_type($node);
     // $target_language = $job_item->getJob()->target_language;
-
     // Get all the fields that can be translated and arrange their values into
     // a specific structure.
     $structure = tmgmt_field_get_source_data('node', $node, $target_language);
@@ -772,7 +770,7 @@ class TmgmtZanataConnector {
       foreach ($value_array as $field => $contents) {
         if (is_int($field) and array_key_exists('format', $contents) and
             strstr($contents['format']['#text'], 'html')) {
-            return TRUE;
+          return TRUE;
         }
       }
     }
@@ -785,11 +783,11 @@ class TmgmtZanataConnector {
   private function getCommonData() {
     $common_data = array(
       // Required.
-        'contentType' => 'text/plain',
+      'contentType' => 'text/plain',
       // Required.
-        'lang' => 'en-US',
+      'lang' => 'en-US',
       // Required. Must be FILE, DOCUMENT or PAGE.
-        'type' => 'FILE',
+      'type' => 'FILE',
       // TODO look at using extensions for source comments.
       // 'extensions' => array(),
     );
@@ -803,7 +801,7 @@ class TmgmtZanataConnector {
    */
   private function ends_with($haystack, $needle) {
     return $needle === "" || (($temp = strlen($haystack) - strlen($needle))
-        >= 0 && strpos($haystack, $needle, $temp) !== false);
+    >= 0 && strpos($haystack, $needle, $temp) !== FALSE);
   }
 
   /**
@@ -815,7 +813,7 @@ class TmgmtZanataConnector {
   private function requestItemTranslation(TMGMTJobItem $job_item, $base_options) {
 
     $html_flag = $this->determineNodeContentFormat($job_item);
-    $html_doc = null;
+    $html_doc = NULL;
     $process_request_queue = array();
 
     if (!$html_flag) {
@@ -824,7 +822,7 @@ class TmgmtZanataConnector {
       $data = $this->getCommonData();
       $data['textFlows'] = $this->prepareStrings($job_item);
       $options['data'] = json_encode($data);
-      $process_request_queue[$url] =  $options;
+      $process_request_queue[$url] = $options;
 
     } else {
 
@@ -838,7 +836,7 @@ class TmgmtZanataConnector {
           $options = $base_options;
           $options['data'] = $content->data;
           $options = $this->restclient->handleFileUpload($options);
-          $process_request_queue[$url] =  $options;
+          $process_request_queue[$url] = $options;
         } else {
           $url = $this->restclient->getItemUrl($job_item);
           $options = $base_options;
@@ -866,13 +864,13 @@ class TmgmtZanataConnector {
           $job_item->addMessage(
               'Sent document: item "@title" sent to Zanata as document "@doc_id".',
               array(
-                  '@title' => $job_item->defaultLabel(),
-                  '@doc_id' => $doc_id,
+                '@title' => $job_item->defaultLabel(),
+                '@doc_id' => $doc_id,
               ));
-          // Add doc_id as remote_identifier_1, full URL as remote_url.
-          $job_item->addRemoteMapping(NULL, $doc_id, array(
+              // Add doc_id as remote_identifier_1, full URL as remote_url.
+              $job_item->addRemoteMapping(NULL, $doc_id, array(
               'remote_url' => $url,
-          ));
+              ));
           break;
 
         case 401:
@@ -880,8 +878,8 @@ class TmgmtZanataConnector {
           $job_item->addMessage(
               'Item "@title" was not successfully sent to Zanata due to an authorization error.',
               array(
-                  '@title' => $job_item->defaultLabel(),
-                  '@code' => $response->code,
+                '@title' => $job_item->defaultLabel(),
+                '@code' => $response->code,
               ), 'error');
           break;
 
@@ -1020,13 +1018,13 @@ class TmgmtZanataConnector {
     $item_response['textFlowTargets'] = array();
 
     $node = array(
-        'resId' => $resId,
-        'state' => 'Approved',
-        'translator' => array(),
-        'content' => $content,
-        'extensions' => array(),
-        'revision' => 1,
-        'textFlowRevision' => 1,
+      'resId' => $resId,
+      'state' => 'Approved',
+      'translator' => array(),
+      'content' => $content,
+      'extensions' => array(),
+      'revision' => 1,
+      'textFlowRevision' => 1,
     );
 
     array_push($item_response['textFlowTargets'], $node);
@@ -1040,9 +1038,9 @@ class TmgmtZanataConnector {
   private function combineTextFlowTargets($translations) {
     $targets = array();
     foreach ($translations as $node => $value) {
-        foreach ($value['textFlowTargets'] as $index => $text) {
-          array_push($targets, $text);
-        }
+      foreach ($value['textFlowTargets'] as $index => $text) {
+        array_push($targets, $text);
+      }
     }
     return $targets;
   }
@@ -1090,8 +1088,8 @@ class TmgmtZanataConnector {
         if (!array_key_exists($doc_path, $docs)) {
           global $base_url;
           $docs[$doc_path] = array(
-              'title' => $doc_title,
-              'drupal' => $base_url . '/' . $doc_path
+            'title' => $doc_title,
+            'drupal' => $base_url . '/' . $doc_path,
           );
         }
       }

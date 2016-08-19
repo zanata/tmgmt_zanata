@@ -73,41 +73,41 @@ class TMGMTZanataTranslatorUIController extends TMGMTDefaultTranslatorUIControll
       '#default_value' => $translator->getSetting('transcheck'),
     );
     $form['sendtrans'] = array(
-        '#type' => 'checkbox',
-        '#title' => t('Send translations to Zanata if they are found'),
-        '#description' => t(
+      '#type' => 'checkbox',
+      '#title' => t('Send translations to Zanata if they are found'),
+      '#description' => t(
             'Check for translated documents when a translation job is created, and send the translations to Zanata. Translations will only be sent for strings that have not started translation in Zanata.'),
-        '#default_value' => $translator->getSetting('sendtrans'),
+      '#default_value' => $translator->getSetting('sendtrans'),
     );
     $form['email'] = array(
-        '#type' => 'fieldset',
-        '#title' => t('Notification'),
-        '#collapsible' => FALSE,
-        '#collapsed' => FALSE,
+      '#type' => 'fieldset',
+      '#title' => t('Notification'),
+      '#collapsible' => FALSE,
+      '#collapsed' => FALSE,
     );
     $emailSettings = $translator->getSetting('email');
     $form['email']['notification'] = array(
-        '#type' => 'radios',
-        '#title' => t('Send an email when translation jobs are submitted.'),
-        '#options' => array(
-            0 => t('Do not send email notifications.'),
-            'express' => t('Send one email when a set of translation jobs is created. The email shows a summary of all the documents and languages that were requested. Users must use express checkout form to allow all requested languages to be listed in a single email.'),
-            'default' => t('Send one email per language when a set of translation jobs is created.'),
-        ),
-        '#default_value' => $emailSettings['notification'],
+      '#type' => 'radios',
+      '#title' => t('Send an email when translation jobs are submitted.'),
+      '#options' => array(
+        0 => t('Do not send email notifications.'),
+        'express' => t('Send one email when a set of translation jobs is created. The email shows a summary of all the documents and languages that were requested. Users must use express checkout form to allow all requested languages to be listed in a single email.'),
+        'default' => t('Send one email per language when a set of translation jobs is created.'),
+      ),
+      '#default_value' => $emailSettings['notification'],
     );
     $form['email']['address'] = array(
-        '#type' => 'textfield',
-        '#title' => t('Email address to send to when a job is created. Leave blank to disable email notifications.'),
-        '#states' => array(
-            "visible" => array(
-                "input[name='emailnotification']" => array("checked" => TRUE)),
-        ),
-        '#description' => t(
+      '#type' => 'textfield',
+      '#title' => t('Email address to send to when a job is created. Leave blank to disable email notifications.'),
+      '#states' => array(
+        "visible" => array(
+          "input[name='emailnotification']" => array("checked" => TRUE)),
+      ),
+      '#description' => t(
             'Notification will be posted to this email address when a job is created.'),
-        '#size' => 50,
-        '#maxlength' => 50,
-        '#default_value' => $emailSettings['address'],
+      '#size' => 50,
+      '#maxlength' => 50,
+      '#default_value' => $emailSettings['address'],
     );
     $form['segmentation'] = array(
       '#type' => 'select',
@@ -119,9 +119,9 @@ class TMGMTZanataTranslatorUIController extends TMGMTDefaultTranslatorUIControll
         'NONE' => t('Do not segment.'),
         'PARAGRAPHS' => t('Segment by paragraphs.'),
         'SENTENCES' => t('Segment by sentences.'),
-        'HTML' => t('HTML Content.')
+        'HTML' => t('HTML Content.'),
       ),
-      '#default_value' => $translator->getSetting('segmentation')
+      '#default_value' => $translator->getSetting('segmentation'),
     );
 
     return parent::pluginSettingsForm($form, $form_state, $translator, $busy);
@@ -165,7 +165,7 @@ class TMGMTZanataTranslatorUIController extends TMGMTDefaultTranslatorUIControll
                 'attributes' => array('target' => '_blank')));
 
     $info['actions']['open_zanata'] = array(
-      '#markup' => $link
+      '#markup' => $link,
     );
 
     return $info;
