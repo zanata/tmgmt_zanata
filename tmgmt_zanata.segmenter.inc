@@ -19,14 +19,14 @@ class TmgmtZanataSegmenter {
   // - after a closing paragraph tag that is not the end of the string,
   //   including trailing whitespace
   // TODO look at PHP_EOL, it may be relevant.
-  const PARAGRAPH_REGEX =
-    "@((?:\\s*(?:\r\n\\s*\r\n|\n\\s*\n|<br\s*/?>)\\s*)+|(?:^(?=\\s)|(?<!\\s|^))\\s*(?=<p>)|(?<=</p>)\\s*(?!$))@";
+  const PARAGRAPH_REGEX
+    = "@((?:\\s*(?:\r\n\\s*\r\n|\n\\s*\n|<br\s*/?>)\\s*)+|(?:^(?=\\s)|(?<!\\s|^))\\s*(?=<p>)|(?<=</p>)\\s*(?!$))@";
 
   // non-ellipsis period before whitespace, except in e.g. and i.e.; OR
   // punctuation at end of sentence before whitespace; OR
-  // ideographic period regardless of whitespace
-  const SENTENCE_REGEX =
-    '/((?<=(?<!\.\.|e\.g|i\.e)\.)\s+|(?<=[!?؟])\s+|(?<=。)\s*)/';
+  // ideographic period regardless of whitespace.
+  const SENTENCE_REGEX
+    = '/((?<=(?<!\.\.|e\.g|i\.e)\.)\s+|(?<=[!?؟])\s+|(?<=。)\s*)/';
 
 
   private $segmentRegex;
@@ -34,8 +34,8 @@ class TmgmtZanataSegmenter {
   /**
    * Create a new segmenter for general use.
    */
-  public function __construct($segmentationType) {
-    switch ($segmentationType) {
+  public function __construct($segmentation_type) {
+    switch ($segmentation_type) {
       case 'PARAGRAPHS':
         $this->segmentRegex = $this::PARAGRAPH_REGEX;
         break;
@@ -53,15 +53,14 @@ class TmgmtZanataSegmenter {
       default:
         drupal_set_message(
           t('Segmentation type setting "@segtype" is not valid.',
-            array('@segtype' => $segmentationType)),
+            array('@segtype' => $segmentation_type)),
          'error');
         // TODO fail with error, since segmenter cannot behave sensibly.
     }
   }
 
   /**
-   * Segment translations, trying to be consistent with segmentation of the
-   * given source data.
+   * Segment translations, trying to be consistent with source segmentation.
    *
    * If the translation data would create more segments than the source data,
    * the last translation segment will hold all remaining translation text and
@@ -74,16 +73,13 @@ class TmgmtZanataSegmenter {
     foreach ($source_data as $source_id => $source_value) {
       $index = 0;
       $first_segment_id = $this->segmentId($source_id, $index);
-      // source always has at least one segment
+      // Source always has at least one segment.
       $segment_count = $source_segments[$first_segment_id]['segment_count'];
 
       if (array_key_exists($first_segment_id, $trans_segments)) {
         $trans_segment = &$trans_segments[$first_segment_id];
-        $trans_segment_count = $trans_segment['segment_count'];
 
         while ($trans_segment['segment_count'] > $segment_count) {
-          $last_index = $trans_segment['segment_count'] - 1;
-          $previous_index = $last_index - 1;
           $this->collapseLastSegment($source_id,
             $trans_segments);
         }
@@ -99,25 +95,25 @@ class TmgmtZanataSegmenter {
     $first_segment_id = $this->segmentId($source_id, 0);
     $segment_count = $segments[$first_segment_id]['segment_count'];
 
-    // get a copy of last segment and remove it from segments
+    // Get a copy of last segment and remove it from segments.
     $last_index = $segment_count - 1;
     $last_id = $this->segmentId($source_id, $last_index);
     $last = $segments[$last_id];
     unset($segments[$last_id]);
 
-    // get a reference to the segment before the last
+    // Get a reference to the segment before the last.
     $previous_index = $last_index - 1;
     $previous_id = $this->segmentId($source_id, $previous_index);
     $previous = &$segments[$previous_id];
 
-    // add content and intervening skeleton to the segment before the last
+    // Add content and intervening skeleton to the segment before the last.
     $previous['#text'] .= $previous['post_skeleton'] . $last['pre_skeleton'] .
                           $last['#text'];
 
-    // move trailing skeleton part up to the segment before the last
+    // Move trailing skeleton part up to the segment before the last.
     $previous['post_skeleton'] = $last['post_skeleton'];
 
-    // update the segment count on all remaining segments of this string
+    // Update the segment count on all remaining segments of this string.
     $new_segment_count = $segment_count - 1;
     for ($index = 0; $index < $new_segment_count; $index++) {
       $id = $this->segmentId($source_id, $index);
@@ -127,8 +123,9 @@ class TmgmtZanataSegmenter {
   }
 
   /**
-   * Join segmented translations to full translations. Translations with missing
-   * segments are not included in returned data.
+   * Join segmented translations to full translations.
+   *
+   * Translations with missing segments are not included in returned data.
    *
    * returns $translated (data that is ready to be unflattened).
    */
@@ -138,7 +135,7 @@ class TmgmtZanataSegmenter {
     $translated = array();
 
     foreach ($source_data as $source_id => $source_value) {
-      // first source segment is always present, so count can be found there.
+      // First source segment is always present, so count can be found there.
       $first_segment_id = $this->segmentId($source_id, 0);
       $segment_count = $source_segments[$first_segment_id]['segment_count'];
       $index = 0;
@@ -177,9 +174,13 @@ class TmgmtZanataSegmenter {
     return $parent_key . $this::SEGMENT_PREFIX . $index;
   }
 
-  // Reference, splits text at a delimiter:
-  //   https://api.drupal.org/api/drupal/modules!field!modules!text!text.module/function/text_summary/7
+  // @codingStandardsIgnoreStart
+  /**
+   * Splits text at a delimiter.
+   * https://api.drupal.org/api/drupal/modules!field!modules!text!text.module/function/text_summary/7
+   */
   public function segmentText($data) {
+    // @codingStandardsIgnoreEnd
     $segmented = array();
     foreach ($data as $key => $value) {
       $new_segments = $this->calculateSegments($key, $value);
@@ -189,13 +190,15 @@ class TmgmtZanataSegmenter {
   }
 
   /**
-   * This is a fake segmentation algorithm, useful for testing the control
-   * flow regardless of actual segmentation. It just splits strings in half.
+   * This is a fake segmentation algorithm.
+   *
+   * Useful for testing the control flow regardless of actual segmentation.
+   * It just splits strings in half.
    */
   private function bisectSegments($parent_key, $value) {
     $segments = array();
 
-    // $value will act as a template for each segment
+    // $value will act as a template for each segment.
     $value['parent_key'] = $parent_key;
     $value['pre_skeleton'] = '';
     $value['post_skeleton'] = '';
@@ -222,21 +225,24 @@ class TmgmtZanataSegmenter {
     else {
       $value['segment_index'] = 0;
       $value['segment_count'] = 1;
+      $key = $this->segmentId($parent_key, 0);
       $segments[$key] = $value;
     }
     return $segments;
   }
 
   /**
-   * Segment the text in a given value, and generate a new
-   * value for each segment.
-   * Returns an associative array with each segment associated
-   * with its unique segment key.
+   * Segment the text in a given value.
+   *
+   * Also generate a new value for each segment.
+   *
+   * @return array
+   *   each segment associated with its unique segment key.
    */
   private function calculateSegments($parent_key, $value) {
     $segments = array();
 
-    // $value will act as a template for each segment
+    // $value will act as a template for each segment.
     $value['parent_key'] = $parent_key;
     $text = $value['#text'];
 
@@ -247,7 +253,7 @@ class TmgmtZanataSegmenter {
     // (invalid segments become skeleton data).
     $next_segment_index = 0;
 
-    // skeleton data to attach to a segment
+    // Skeleton data to attach to a segment.
     $skeleton_buffer = '';
 
     foreach ($segment_texts as $index => $segment_text) {
@@ -255,8 +261,8 @@ class TmgmtZanataSegmenter {
       $post_separator = $separators[$index];
 
       if ($this->isSegmentValid($segment_text)) {
-        // move whitespace from string to skeleton
-        // this could be done before iterating the segments
+        // Move whitespace from string to skeleton.
+        // This could be done before iterating the segments.
         list($pre, $cleaned, $post) = $this->partitionWhitespace($segment_text);
 
         $new_segment = $this->createSegment($value,
@@ -276,7 +282,7 @@ class TmgmtZanataSegmenter {
         if ($is_last_segment) {
           $have_valid_segments = $next_segment_index != 0;
           if ($have_valid_segments) {
-            // just add the buffer to the valid segment
+            // Just add the buffer to the valid segment.
             $last_segment_index = $next_segment_index - 1;
             $last_segment_id = $this->segmentId($parent_key,
                                                 $last_segment_index);
@@ -287,26 +293,27 @@ class TmgmtZanataSegmenter {
             $skeleton_buffer = '';
           }
           else {
-            // make a segment out of the buffer (to avoid an empty document).
-            // expect $skeleton_buffer to be identical to $text here
-            // This is done in case the empty document is due to a problem with
-            // the segmentation, so that there is still a way to translate.
+            /* Make a segment out of the buffer (to avoid an empty document).
+             * expect $skeleton_buffer to be identical to $text here
+             * This is done in case the empty document is due to a problem with
+             * the segmentation, so that there is still a way to translate.
+             */
             $new_segment = $this->createSegment($value, $next_segment_index, '',
                                          $skeleton_buffer, '');
             $segment_id = $this->segmentId($parent_key, $next_segment_index);
             $segments[$segment_id] = $new_segment;
 
-            // used below for the valid segment count, will be 1 here.
+            // Used below for the valid segment count, will be 1 here.
             $next_segment_index++;
             $skeleton_buffer = '';
           }
         }
       }
     }
-    // set the segment count, now that it is known
+    // Set the segment count, now that it is known.
     $valid_segment_count = $next_segment_index;
     // Note: $segment is not unset after this, so it will reference the last
-    //       segment after this loop. Safest not to use it after this.
+    // segment after this loop. Safest not to use it after this.
     foreach ($segments as $index => &$segment) {
       $segment['segment_count'] = $valid_segment_count;
     }

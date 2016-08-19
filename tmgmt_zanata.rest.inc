@@ -7,7 +7,6 @@
 /**
  * Handles operations relating to Zanata URLs.
  */
-
 class TMGMTZanataTranslatorRESTClient {
 
   private $serverUrl;
@@ -61,7 +60,7 @@ class TMGMTZanataTranslatorRESTClient {
    * to be translated.
    */
   public function getDocEditorUrl($job_item) {
-    return $this->getEditorUrl().'#view:doc;doc:'.$this->getDocId($job_item);
+    return $this->getEditorUrl() . '#view:doc;doc:' . $this->getDocId($job_item);
   }
 
   /**
@@ -85,7 +84,7 @@ class TMGMTZanataTranslatorRESTClient {
     $id = $job_item->item_id;
     $type = $job_item->item_type;
 
-    // returns an associative array with id as key
+    // Returns an associative array with id as key.
     $loaded_entity = entity_load($type, array($id));
     $entity = $loaded_entity[$id];
     $label = entity_label($type, $entity);
@@ -101,11 +100,11 @@ class TMGMTZanataTranslatorRESTClient {
       // name to be lost if it is too long. Remove them.
       $label = ltrim($label, '_-');
 
-      // Only use label if it has not all been trimmed away
+      // Only use label if it has not all been trimmed away.
       if (strlen($label) > 0) {
         $doc_id = "{$type}/{$id}/{$label}";
-        $doc_id =
-                    truncate_utf8($doc_id, TmgmtZanataConnector::MAX_DOCID_LENGTH, FALSE);
+        $doc_id
+          = truncate_utf8($doc_id, TmgmtZanataConnector::MAX_DOCID_LENGTH, FALSE);
         // Zanata breaks if a doc id ends with _ or -
         $doc_id = rtrim($doc_id, '_-');
 
@@ -141,29 +140,29 @@ class TMGMTZanataTranslatorRESTClient {
   }
 
   /**
-   * Generate file upload URL
+   * Generate file upload URL.
    *
    * @return string
    *   the base REST URL to upload documents
    */
-  public function getFileUploadUrl($docId) {
+  public function getFileUploadUrl($doc_id) {
     return "{$this->serverUrl}/rest/file/source/{$this->projectId}/"
-        . "{$this->versionId}?docId=". $docId;
+        . "{$this->versionId}?docId=" . $doc_id;
   }
 
   /**
-   * Generate file download URL for documents
+   * Generate file download URL for documents.
    *
    * @return string
    *   the base REST URL to download documents
    */
-  public function getFileDownloadUrl($docId) {
+  public function getFileDownloadUrl($doc_id) {
     return "{$this->serverUrl}/rest/file/translation/{$this->projectId}/"
-        . "{$this->versionId}/". $this->getLocale() ."/baked?docId=". $docId;
+        . "{$this->versionId}/" . $this->getLocale() . "/baked?docId=" . $doc_id;
   }
 
   /**
-   * Generate list documents URL for project_version
+   * Generate list documents URL for project_version.
    *
    * @return string
    *   the base REST URL to list documents
@@ -174,23 +173,27 @@ class TMGMTZanataTranslatorRESTClient {
   }
 
   /**
-   * Generate statistics URL for document, locale
+   * Generate statistics URL for document, locale.
    *
    * @return string
    *   the base REST URL to query stats
    */
-  public function getDocStatsUrl($docId) {
+  public function getDocStatsUrl($doc_id) {
     return "{$this->serverUrl}/rest/stats/proj/{$this->projectId}/"
-        . "iter/{$this->versionId}/doc/". $docId ."?locale=". $this->getLocale();
+        . "iter/{$this->versionId}/doc/" . $doc_id . "?locale=" . $this->getLocale();
   }
 
   /**
    * Generate some common options for a HTTP request.
    *
-   * @param string $content_type HTTP Header content-type
-   * @param string $accept HTTP Header accept
-   * @return options for a HTTP request that include authorization information
-   *         and content type headers.
+   * @param string $content_type
+   *   HTTP Header content-type.
+   * @param string $accept
+   *   HTTP Header accept.
+   *
+   * @return array
+   *   options for a HTTP request that include authorization
+   *   information and content type headers.
    */
   public function getBaseOptions($content_type = 'application/json', $accept = 'application/json') {
     return array(
@@ -207,12 +210,13 @@ class TMGMTZanataTranslatorRESTClient {
   /**
    * To keep post_data ready required for file upload.
    *
-   * @return mixed[] post_data as required for Zanata server uploads
+   * @return mixed[]
+   *   post_data as required for Zanata server uploads
    */
   public function handleFileUpload($options) {
     $boundary = md5(uniqid());
 
-    // modify header params
+    // Modify header params.
     $options['method'] = 'POST';
     $options['headers']['Accept'] = "application/xml";
     $options['headers']['Content-Type'] = "multipart/form-data; charset=utf-8; boundary=$boundary";
@@ -225,28 +229,35 @@ class TMGMTZanataTranslatorRESTClient {
       'hash' => md5($options['data']),
     );
 
-    $options['data'] = $this->multipart_encode($boundary, $post_data);
+    $options['data'] = $this->multipartEncode($boundary, $post_data);
     return $options;
   }
 
   /**
    * Function to encode text data.
    *
-   * @param $name
-   * @param $value
+   * @param string $name
+   *   Name of text to encode.
+   * @param string $value
+   *   Text to encode.
+   *
    * @return string
+   *   Encoded text.
    */
-  private function multipart_enc_text($name, $value){
+  private function multipartEncText($name, $value) {
     return "Content-Disposition: form-data; name=\"$name\"\n\n$value\n";
   }
 
   /**
    * Function to multipart encode a html.
    *
-   * @param $contents
+   * @param string $contents
+   *   The html contents to encode.
+   *
    * @return string
+   *   Encoded html.
    */
-  private function multipart_enc_html($contents){
+  private function multipartEncHtml($contents) {
     $mimetype = "text/html";
     $data = "Content-Disposition: form-data; name=\"file\" \n";
     // "file" key.
@@ -259,41 +270,50 @@ class TMGMTZanataTranslatorRESTClient {
   /**
    * Base function to encode a data array.
    *
-   * @param $boundary
-   * @param $params
+   * @param string $boundary
+   *   Boundary value to separate parameters.
+   * @param array $params
+   *   Params to encode.
+   *
    * @return string
+   *   Encoded output.
    */
-  private function multipart_encode($boundary, $params){
+  private function multipartEncode($boundary, array $params) {
     $output = "";
-    foreach ($params as $key => $value){
+    foreach ($params as $key => $value) {
       $output .= "--$boundary\r\n";
-      if ($key == 'file'){
-        $output .= $this->multipart_enc_html($value);
-      } else { $output .= $this->multipart_enc_text($key, $value);
+      if ($key == 'file') {
+        $output .= $this->multipartEncHtml($value);
+      }
+      else {
+        $output .= $this->multipartEncText($key, $value);
       }
     }
     $output .= "--$boundary--";
     return $output;
   }
 
-  public function process_request($url, $options, $curl = FALSE) {
-    return $curl ? new CURLProcess($url, $options) : drupal_http_request($url, $options);
+  /**
+   * Process a request, using curl if specified.
+   */
+  public function processRequest($url, $options, $curl = FALSE) {
+    return $curl ? new TmgmtZanataCURLProcess($url, $options) : drupal_http_request($url, $options);
   }
 
 }
 
 /**
- * Class CURLProcess
+ * Class TmgmtZanataCURLProcess.
  */
-class CURLProcess {
+class TmgmtZanataCURLProcess {
 
   public $code;
   public $header;
-  public $header_size;
+  public $headerSize;
   public $data;
 
   /**
-   * Create a new CURL Request
+   * Create a new CURL Request.
    */
   public function __construct($url, $options) {
     $curl = curl_init();
@@ -305,10 +325,10 @@ class CURLProcess {
     curl_setopt($curl, CURLOPT_HTTPHEADER, $options['headers']);
     $server_output = curl_exec($curl);
 
-    $this->header_size = curl_getinfo($curl, CURLINFO_HEADER_SIZE);
+    $this->headerSize = curl_getinfo($curl, CURLINFO_HEADER_SIZE);
     $this->code = curl_getinfo($curl, CURLINFO_HTTP_CODE);
-    $this->header = substr($server_output, 0, $this->header_size);
-    $this->data = substr($server_output, $this->header_size);
+    $this->header = substr($server_output, 0, $this->headerSize);
+    $this->data = substr($server_output, $this->headerSize);
     curl_close($curl);
   }
 

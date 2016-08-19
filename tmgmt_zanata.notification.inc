@@ -1,13 +1,12 @@
 <?php
 /**
  * @file
- * Email Notification Manager
+ * Email Notification Manager.
  */
 
 /**
  * Handles operations related to email notifications.
  */
-
 class TMGMTZanataTranslatorNotification {
 
   private $pageTitle;
@@ -20,67 +19,73 @@ class TMGMTZanataTranslatorNotification {
    *
    * A email should be sent for TMGMT jobs.
    */
-  public function __construct()
-    {
+  public function __construct() {
     $title = drupal_get_title();
     $site_name = variable_get('site_name', "Drupal");
-    $this->pageTitle = $title." | ".$site_name;
+    $this->pageTitle = $title . " | " . $site_name;
     $this->fromEmail = 'no-reply@zanata.org';
 
     global $user;
     $this->requesterName = property_exists($user, "name") ? $user->name : NULL;
     $this->requesterEmail = property_exists($user, "mail") ? $user->mail : NULL;
-
   }
 
   /**
-   * Function to format notification email body
+   * Function to format notification email body.
    *
-   * @param $email_contents   array()
-   * @return string           string
+   * @param array $email_contents
+   *   Details to include in the email.
+   *
+   * @return string
+   *   The message body for the email.
    */
-  public function formatEmailBody($email_contents){
+  public function formatEmailBody(array $email_contents) {
 
-    $msgBody = "";
-    if (array_key_exists("locales", $email_contents) and array_key_exists("docs", $email_contents))
-        {
-      $msg = "A translation job has been submitted to Zanata from '".$this->pageTitle."'. Details:";
-      $msgBody = "Hello,\n\n";
-      $msgBody .= $msg."\n";
-      $msgBody .= "Language(s): " .join(' ', array_keys($email_contents['locales'])). "\n\n";
+    $msg_body = "";
+    if (array_key_exists("locales", $email_contents) and array_key_exists("docs", $email_contents)) {
+      $msg = "A translation job has been submitted to Zanata from '" . $this->pageTitle . "'. Details:";
+      $msg_body = "Hello,\n\n";
+      $msg_body .= $msg . "\n";
+      $msg_body .= "Language(s): " . implode(' ', array_keys($email_contents['locales'])) . "\n\n";
       foreach ($email_contents['locales'] as $locale => $editor) {
-        $msgBody .= "For language: ".$locale.",\n";
-        $msgBody .= "Zanata URL: ".$editor."\n\n";
+        $msg_body .= "For language: " . $locale . ",\n";
+        $msg_body .= "Zanata URL: " . $editor . "\n\n";
       }
-      $msgBody .= "\n";
-      $msgBody .= "Documents...\n\n";
+      $msg_body .= "\n";
+      $msg_body .= "Documents...\n\n";
       foreach ($email_contents['docs'] as $doc_path => $title_url) {
-        $msgBody .= "Path: ".$doc_path."\n";
-        $msgBody .= "Document: ".$title_url['title']."\n";
-        $msgBody .= "Drupal URL: ".$title_url['drupal']."\n\n";
+        $msg_body .= "Path: " . $doc_path . "\n";
+        $msg_body .= "Document: " . $title_url['title'] . "\n";
+        $msg_body .= "Drupal URL: " . $title_url['drupal'] . "\n\n";
       }
       if ($this->requesterName and $this->requesterEmail) {
-        $msgBody .= "\n";
-        $msgBody .= "Requester...\n\n";
-        $msgBody .= "Name: ".$this->requesterName."\n";
-        $msgBody .= "Email: ".$this->requesterEmail."\n";
+        $msg_body .= "\n";
+        $msg_body .= "Requester...\n\n";
+        $msg_body .= "Name: " . $this->requesterName . "\n";
+        $msg_body .= "Email: " . $this->requesterEmail . "\n";
       }
-      $msgBody .= "\n\n";
-      $msgBody .= "Zanata Team";
+      $msg_body .= "\n\n";
+      $msg_body .= "Zanata Team";
     }
-    return $msgBody;
+    return $msg_body;
   }
 
   /**
-   * Simple wrapper function for drupal_mail()
+   * Simple wrapper function for drupal_mail().
    *
+   * @param string $to
+   *   Email to address.
+   * @param string $subject
+   *   Email subject.
+   * @param string $message
+   *   Email message body.
    * @param string $from
-   * @param $to
-   * @param $subject
-   * @param $message
+   *   Email from address.
+   *
    * @return bool
+   *   TRUE if the mail sent successfully, otherwise FALSE.
    */
-  public function send_drupal_mail($from = 'default_from', $to, $subject, $message) {
+  public function sendDrupalMail($to, $subject, $message, $from = 'default_from') {
     $module = 'tmgmt_zanata';
     $mail_token = microtime();
     if ($from == 'default_from') {

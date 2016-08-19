@@ -1,7 +1,7 @@
 <?php
 /**
  * @file
- * Program Utilities
+ * Program Utilities.
  */
 
 /**
@@ -9,63 +9,70 @@
  */
 class TmgmtZanataJobItemDataBuilder {
 
-  private $job_item;
+  private $jobItem;
 
-  // data fields
-  private $node_title;
-  private $node_notes;
-  private $node_head;
-  private $node_body;
-  private $custom_fields;
-  // array
-  private $flatten_source;
+  // Data fields.
+  private $nodeTitle;
+  private $nodeNotes;
+  private $nodeHead;
+  private $nodeBody;
+  private $customFields;
+  // Array.
+  private $flattenSource;
 
   /**
    * Create a new job item data builder.
    *
    * @param TMGMTJobItem $job_item
+   *   A single document in this job.
    */
   public function __construct(TMGMTJobItem $job_item) {
 
-    $this->job_item = $job_item;
+    $this->jobItem = $job_item;
 
     foreach ($job_item->data as $node_field => $field_details) {
       $other_fields = array();
       switch ($node_field) {
         case 'node_title':
-                    $this->node_title = $field_details;
+                    $this->nodeTitle = $field_details;
           break;
 
         case 'notes':
-                    $this->node_notes = $field_details;
+                    $this->nodeNotes = $field_details;
           break;
 
         case 'head':
-                    $this->node_head = $field_details;
+                    $this->nodeHead = $field_details;
           break;
 
         case 'body':
-                    $this->node_body = $field_details;
+                    $this->nodeBody = $field_details;
           break;
 
         default:
                     $other_fields[$node_field] = $field_details;
           break;
       }
-      $this->custom_fields = $other_fields;
-      $this->flatten_source = tmgmt_flatten_data($job_item->getData());
+      $this->customFields = $other_fields;
+      $this->flattenSource = tmgmt_flatten_data($job_item->getData());
     }
   }
 
   /**
-   * @return mixed TMGMT Job Item Data
+   * Get data from job item.
+   *
+   * @return mixed
+   *   TMGMT Job Item Data
    */
   public function getJobItemData() {
     return $this->job_item->data;
   }
 
   /**
-   * @return array Job item translation stats
+   * Get counts of different translations states for the current job item.
+   *
+   * @return array
+   *   Job item translation stats
    */
   public function getJobItemStats() {
     return array(
@@ -78,21 +85,29 @@ class TmgmtZanataJobItemDataBuilder {
   }
 
   /**
-   * @return mixed Node Title
+   * Get the node title text.
+   *
+   * @return mixed
+   *   Node Title
    */
-  public function get_node_title() {
-    return $this->node_title['#text'];
+  public function getNodeTitle() {
+    return $this->nodeTitle['#text'];
   }
 
   /**
+   * Map translatable content keys to their formats.
+   *
    * Creates mapping between translatable content keys
    * in the order, formats to their values
    * example: body][0][format => body][0][value
    *
-   * @param $src_msg_keys tmgmt_flatten_data keys
-   * @return array format to value mappings
+   * @param array $src_msg_keys
+   *   Keys from tmgmt_flatten_data.
+   *
+   * @return array
+   *   format to value mappings
    */
-  private function format_value_mapping($src_msg_keys) {
+  private function formatValueMapping(array $src_msg_keys) {
     $values = array();
     $formats = array();
     $others = array();
@@ -120,19 +135,21 @@ class TmgmtZanataJobItemDataBuilder {
   }
 
   /**
-   * Process TMGMT flatten data and make it more descriptive
+   * Process TMGMT flatten data and make it more descriptive.
    *
-   * @return array NodeFieldContent elements
+   * @return array
+   *   TmgmtZanataNodeFieldContent elements
    */
-  public function process_node_contents() {
+  public function processNodeContents() {
 
     $node_contents = array();
-    foreach ($this->format_value_mapping(array_keys($this->flatten_source)) as $format => $value) {
+    foreach ($this->formatValueMapping(array_keys($this->flattenSource)) as $format => $value) {
       if (is_int($format)) {
-        array_push($node_contents, new NodeFieldContent($value, $this->flatten_source[$value]));
-      } else {
-        array_push($node_contents, new NodeFieldContent(
-                    $value, $this->flatten_source[$value], $this->flatten_source[$format])
+        array_push($node_contents, new TmgmtZanataNodeFieldContent($value, $this->flattenSource[$value]));
+      }
+      else {
+        array_push($node_contents, new TmgmtZanataNodeFieldContent(
+                    $value, $this->flattenSource[$value], $this->flattenSource[$format])
                 );
       }
     }
@@ -141,29 +158,32 @@ class TmgmtZanataJobItemDataBuilder {
 }
 
 /**
- * Class NodeFieldContent
+ * Class TmgmtZanataNodeFieldContent.
  */
-class NodeFieldContent {
+class TmgmtZanataNodeFieldContent {
 
   public $key;
   public $label;
   public $data;
-  public $is_html;
-  public $is_title;
+  public $isHtml;
+  public $isTitle;
 
   /**
-   * Create a new Node Field Content
+   * Create a new Node Field Content.
    *
-   * @param $source
-   * @param $data
+   * @param string $source
+   *   The key for the field.
+   * @param array $data
+   *   Data containing label and text.
    * @param array $format
+   *   Format that describes whether the field has html content.
    */
-  public function __construct($source, $data, $format = array('#text' => 'plain_text')) {
+  public function __construct($source, array $data, $format = array('#text' => 'plain_text')) {
     $this->key = $source;
     $this->label = $data['#label'];
     $this->data = $data['#text'];
-    $this->is_html = strstr($format['#text'], 'html');
-    $this->is_title = $source === 'node_title';
+    $this->isHtml = strstr($format['#text'], 'html');
+    $this->isTitle = $source === 'node_title';
   }
 
 }

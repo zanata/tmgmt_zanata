@@ -85,7 +85,7 @@ class TMGMTZanataTranslatorUIController extends TMGMTDefaultTranslatorUIControll
       '#collapsible' => FALSE,
       '#collapsed' => FALSE,
     );
-    $emailSettings = $translator->getSetting('email');
+    $email_settings = $translator->getSetting('email');
     $form['email']['notification'] = array(
       '#type' => 'radios',
       '#title' => t('Send an email when translation jobs are submitted.'),
@@ -94,7 +94,7 @@ class TMGMTZanataTranslatorUIController extends TMGMTDefaultTranslatorUIControll
         'express' => t('Send one email when a set of translation jobs is created. The email shows a summary of all the documents and languages that were requested. Users must use express checkout form to allow all requested languages to be listed in a single email.'),
         'default' => t('Send one email per language when a set of translation jobs is created.'),
       ),
-      '#default_value' => $emailSettings['notification'],
+      '#default_value' => $email_settings['notification'],
     );
     $form['email']['address'] = array(
       '#type' => 'textfield',
@@ -107,7 +107,7 @@ class TMGMTZanataTranslatorUIController extends TMGMTDefaultTranslatorUIControll
             'Notification will be posted to this email address when a job is created.'),
       '#size' => 50,
       '#maxlength' => 50,
-      '#default_value' => $emailSettings['address'],
+      '#default_value' => $email_settings['address'],
     );
     $form['segmentation'] = array(
       '#type' => 'select',
