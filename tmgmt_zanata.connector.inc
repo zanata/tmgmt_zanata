@@ -95,6 +95,21 @@ class TmgmtZanataConnector {
   }
 
   /**
+   * Filter documents.
+   */
+  private function filterDocs($value) {
+    global $_tmgmt_zanata_doc_id;
+    return strstr($value, $_tmgmt_zanata_doc_id);
+  }
+
+  /**
+   * Filter html documents.
+   */
+  private function filterHtmlDocs($value) {
+    return strstr($value, '.html');
+  }
+
+  /**
    * Check for and download available translations from Zanata server.
    */
   public function pollTranslations() {
@@ -154,27 +169,8 @@ class TmgmtZanataConnector {
           array_push($docs_list, $doc['name']);
         }
 
-        if (!function_exists("filterDocs")) {
-          /**
-           * Filter documents.
-           */
-          private function filterDocs($value) {
-            global $_tmgmt_zanata_doc_id;
-            return strstr($value, $_tmgmt_zanata_doc_id);
-          }
-        }
-
-        if (!function_exists("filterHtmlDocs")) {
-          /**
-           * Filter html documents/
-           */
-          private function filterHtmlDocs($value) {
-            return strstr($value, '.html');
-          }
-        }
-
-        $related_docs = array_filter($docs_list, 'filterDocs');
-        $html_docs = array_filter($related_docs, 'filterHtmlDocs');
+        $related_docs = array_filter($docs_list, array($this, 'filterDocs'));
+        $html_docs = array_filter($related_docs, array($this, 'filterHtmlDocs'));
         $non_html_docs = array_diff($related_docs, $html_docs);
 
         foreach ($non_html_docs as $index => $doc) {
@@ -851,6 +847,13 @@ class TmgmtZanataConnector {
   }
 
   /**
+   * Tell when a response is not success.
+   */
+  private function notSuccessResponse($resp) {
+    return !in_array($resp->code, array(200, 201));
+  }
+
+  /**
    * Request translation for a single item.
    *
    * @return bool
@@ -945,16 +948,7 @@ class TmgmtZanataConnector {
           break;
       }
     }
-
-    if (!function_exists("notSuccessResponse")) {
-      /**
-       * Tell when a response is not success.
-       */
-      private function notSuccessResponse($resp) {
-        return !in_array($resp->code, array(200, 201));
-      }
-    }
-    $failed_responses = array_filter($rest_responses, 'notSuccessResponse');
+    $failed_responses = array_filter($rest_responses, array($this, 'notSuccessResponse'));
     return empty($failed_responses);
   }
 
