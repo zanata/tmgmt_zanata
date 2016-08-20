@@ -158,7 +158,8 @@ class TmgmtZanataConnector {
           /**
            * Filter documents.
            */
-          private function filterDocs($value) {
+          // FIXME wants access modifier but errors if I put private
+          function filterDocs($value) {
             global $_tmgmt_zanata_doc_id;
             return strstr($value, $_tmgmt_zanata_doc_id);
           }
@@ -168,7 +169,8 @@ class TmgmtZanataConnector {
           /**
            * Filter html documents/
            */
-          private function filterHtmlDocs($value) {
+           // FIXME wants access modifier but errors if I put private
+          function filterHtmlDocs($value) {
             return strstr($value, '.html');
           }
         }
@@ -950,7 +952,8 @@ class TmgmtZanataConnector {
       /**
        * Tell when a response is not success.
        */
-      private function notSuccessResponse($resp) {
+      // FIXME wants access modifier but errors if I put private\
+      function notSuccessResponse($resp) {
         return !in_array($resp->code, array(200, 201));
       }
     }
