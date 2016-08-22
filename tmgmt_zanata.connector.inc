@@ -103,7 +103,7 @@ class TmgmtZanataConnector {
   }
 
   /**
-   * Filter html documents/
+   * Filter html documents.
    */
   private function filterHtmlDocs($value) {
     return strstr($value, '.html');
