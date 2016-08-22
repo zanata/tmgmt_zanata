@@ -169,8 +169,8 @@ class TmgmtZanataConnector {
           array_push($docs_list, $doc['name']);
         }
 
-        $related_docs = array_filter($docs_list, 'filterDocs');
-        $html_docs = array_filter($related_docs, 'filterHtmlDocs');
+        $related_docs = array_filter($docs_list, array($this, 'filterDocs'));
+        $html_docs = array_filter($related_docs, array($this, 'filterHtmlDocs'));
         $non_html_docs = array_diff($related_docs, $html_docs);
 
         foreach ($non_html_docs as $index => $doc) {
@@ -948,7 +948,7 @@ class TmgmtZanataConnector {
           break;
       }
     }
-    $failed_responses = array_filter($rest_responses, 'notSuccessResponse');
+    $failed_responses = array_filter($rest_responses, array($this, 'notSuccessResponse'));
     return empty($failed_responses);
   }
 
