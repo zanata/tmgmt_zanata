@@ -23,7 +23,7 @@ function tmgmt_zanata_tmgmt_translator_plugin_info() {
       'auto create' => TRUE,
       'default settings' => array(
         'server' => 'http://translate.zanata.org/zanata',
-        'segmentation' => 'NONE'
+        'segmentation' => 'NONE',
       ),
       // TODO look at other settings on the hook page.
     ),
@@ -53,46 +53,47 @@ function tmgmt_zanata_poll_translations($form, &$form_state) {
  *
  * Cron based callback used to poll for translations
  */
-function tmgmt_zanata_cron(){
-    if (variable_get('poll_translations_during_cron', TRUE)) {
-        $query = new EntityFieldQuery();
-        $result = $query->entityCondition('entity_type', 'tmgmt_job')->propertyCondition('state',
+function tmgmt_zanata_cron() {
+  if (variable_get('poll_translations_during_cron', TRUE)) {
+    $query = new EntityFieldQuery();
+    $result = $query->entityCondition('entity_type', 'tmgmt_job')->propertyCondition('state',
             TMGMT_JOB_STATE_ACTIVE)->propertyCondition('translator', 'zanata')->execute();
 
-        if (!empty($result['tmgmt_job'])) {
-            $active_translation_jobs = array_keys($result['tmgmt_job']);
-            foreach ($active_translation_jobs as $job_id) {
-                $job = tmgmt_job_load($job_id);
-                if ($job->getTranslator()->getSetting('transcheck')) {
-                    $job->getTranslatorController()->getConnector($job)->pollTranslations();
-                }
-            }
+    if (!empty($result['tmgmt_job'])) {
+      $active_translation_jobs = array_keys($result['tmgmt_job']);
+      foreach ($active_translation_jobs as $job_id) {
+        $job = tmgmt_job_load($job_id);
+        if ($job->getTranslator()->getSetting('transcheck')) {
+          $job->getTranslatorController()->getConnector($job)->pollTranslations();
         }
+      }
     }
+  }
 }
 
 /**
- * Implements hook_menu()
+ * Implements hook_menu().
  */
 function tmgmt_zanata_menu() {
-    $items = array();
+  $items = array();
 
-    $items['admin/tmgmt/express_checkout'] = array(
-        'title' => 'TMGMT Express Checkout',
-        'description' => 'Express checkout for TMGMT jobs',
-        'page callback' => 'drupal_get_form',
-        'page arguments' => array('tmgmt_zanata_express_checkout_form'),
-        'access callback' => TRUE,
-        // this prevents the form displaying in the main navigation menu
-        'menu_name' => 'tmgmt_express_checkout',
-        'file' => 'tmgmt_zanata.checkout.inc',
-    );
+  $items['admin/tmgmt/express_checkout'] = array(
+    'title' => 'TMGMT Express Checkout',
+    'description' => 'Express checkout for TMGMT jobs',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('tmgmt_zanata_express_checkout_form'),
+    // Not sure why there is no access restriction.
+    'access callback' => TRUE,
+    // This prevents the form displaying in the main navigation menu.
+    'menu_name' => 'tmgmt_express_checkout',
+    'file' => 'tmgmt_zanata.checkout.inc',
+  );
 
-    return $items;
+  return $items;
 }
 
 /**
- * Implements hook_tmgmt_ui_job_checkout_before_alter()
+ * Implements hook_tmgmt_ui_job_checkout_before_alter().
  *
  * Called when jobs have been created, but before all the individual checkout
  * forms. Jobs and redirects can be modified here to change the checkout
@@ -100,23 +101,21 @@ function tmgmt_zanata_menu() {
  */
 function tmgmt_zanata_tmgmt_ui_job_checkout_before_alter(&$redirects, &$jobs) {
 
-    // Array of [name => label]
-    $translators = tmgmt_translator_labels();
+  // Array of [name => label].
+  $translators = tmgmt_translator_labels();
 
-    // reset pointer to first element
-    reset($translators);
-    // get key at pointer
-    $default_translator = key($translators);
+  // Reset pointer to first element.
+  reset($translators);
 
-    // save the job ids in the session, for use by the express checkout form
-    $job_ids = array();
-    foreach ($jobs as $job) {
-        $job_ids[] = $job->tjid;
-    }
-    if (!isset($_SESSION['tmgmt_express_checkout'])) {
-        $_SESSION['tmgmt_express_checkout'] = array();
-    }
-    $_SESSION['tmgmt_express_checkout']['job_ids'] = $job_ids;
+  // Save the job ids in the session, for use by the express checkout form.
+  $job_ids = array();
+  foreach ($jobs as $job) {
+    $job_ids[] = $job->tjid;
+  }
+  if (!isset($_SESSION['tmgmt_express_checkout'])) {
+    $_SESSION['tmgmt_express_checkout'] = array();
+  }
+  $_SESSION['tmgmt_express_checkout']['job_ids'] = $job_ids;
 
-    $redirects[] = 'admin/tmgmt/express_checkout';
+  $redirects[] = 'admin/tmgmt/express_checkout';
 }

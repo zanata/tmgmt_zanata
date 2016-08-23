@@ -99,7 +99,7 @@ class TmgmtZanataJobItemDataBuilder {
    *
    * Creates mapping between translatable content keys
    * in the order, formats to their values
-   * example: body][0][format => body][0][value
+   * example: body][0][format => body][0][value.
    *
    * @param array $src_msg_keys
    *   Keys from tmgmt_flatten_data.
@@ -155,6 +155,7 @@ class TmgmtZanataJobItemDataBuilder {
     }
     return $node_contents;
   }
+
 }
 
 /**

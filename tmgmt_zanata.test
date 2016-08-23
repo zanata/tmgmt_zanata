@@ -1,8 +1,17 @@
 <?php
+/**
+ * Unit tests.
+ *
+ * Note that much of the functionality requires communication with
+ * a Zanata server, so cannot be easily unit tested.
+ */
 
+/**
+ * Note: all tests should start with 'test' to be auto-detected.
+ */
 class TmgmtZanataSegmenterRegexTestCase extends DrupalUnitTestCase {
 
-  // return values from preg_match
+  // Return values from preg_match.
   const NO_MATCH = 0;
   const MATCH = 1;
   const MATCH_ERROR = FALSE;
@@ -11,12 +20,12 @@ class TmgmtZanataSegmenterRegexTestCase extends DrupalUnitTestCase {
    * {@inheritdoc}
    */
   public static function getInfo() {
-    // Note: do not translate getInfo strings
+    // Note: do not translate getInfo strings.
     return array(
       'name' => 'TMGMT Zanata Tests',
       'description' => 'Unit tests for TMGMT Zanata.',
-      // This is a global group in the Testing config page
-      'group' => 'TMGMT Zanata'
+      // This is a global group in the Testing config page.
+      'group' => 'TMGMT Zanata',
     );
   }
 
@@ -25,31 +34,31 @@ class TmgmtZanataSegmenterRegexTestCase extends DrupalUnitTestCase {
    */
   public function setUp() {
     $module_path = drupal_get_path('module', 'tmgmt_zanata');
-    include_once($module_path . '/tmgmt_zanata.segmenter.inc');
+    include_once $module_path . '/tmgmt_zanata.segmenter.inc';
     parent::setUp();
   }
 
-  // Note: all tests should start with 'test' to be auto-detected
-
-
   /**
-   * I was having some issues loading classes in tests. This just makes sure I
-   * have done setup properly. If any of these fail, other tests will likely
-   * have errors.
+   * I was having some issues loading classes in tests.
+   *
+   * This just makes sure I have done setup properly. If any of
+   * these fail, other tests will likely have errors.
    */
-  function testClassesAreLoaded() {
+  public function testClassesAreLoaded() {
     $this->assertTrue(class_exists('TmgmtZanataSegmenter', FALSE),
       'class TmgmtZanataSegmenter should be available.', 'Test setup');
   }
 
-  function testSentenceSegmentationRegex() {
+  /**
+   * Ensure sentences are segmented as expected.
+   */
+  public function testSentenceSegmentationRegex() {
     $sentence_regex = TmgmtZanataSegmenter::SENTENCE_REGEX;
 
     $matched = preg_match($sentence_regex, 'No sentence terminator');
     $this->assertIdentical($matched, $this::NO_MATCH,
       'No match expected when there are no sentence terminators.',
       'Sentence regex');
-
 
     $matched = preg_match($sentence_regex,
                           'Has a sentence terminator but no space after.');
@@ -141,7 +150,10 @@ class TmgmtZanataSegmenterRegexTestCase extends DrupalUnitTestCase {
       'Sentence regex');
   }
 
-  function testParagraphSegmentationRegex() {
+  /**
+   * Ensure sentences are segmented as expected.
+   */
+  public function testParagraphSegmentationRegex() {
     $paragraph_regex = TmgmtZanataSegmenter::PARAGRAPH_REGEX;
 
     $matched = preg_match($paragraph_regex, "Line 1\nLine 2");

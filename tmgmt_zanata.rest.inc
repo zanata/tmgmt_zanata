@@ -105,7 +105,7 @@ class TMGMTZanataTranslatorRESTClient {
         $doc_id = "{$type}/{$id}/{$label}";
         $doc_id
           = truncate_utf8($doc_id, TmgmtZanataConnector::MAX_DOCID_LENGTH, FALSE);
-        // Zanata breaks if a doc id ends with _ or -
+        // Zanata breaks if a doc id ends with _ or -.
         $doc_id = rtrim($doc_id, '_-');
 
         return $doc_id;
@@ -205,7 +205,6 @@ class TMGMTZanataTranslatorRESTClient {
       ),
     );
   }
-
 
   /**
    * To keep post_data ready required for file upload.

@@ -101,7 +101,8 @@ class TMGMTZanataTranslatorUIController extends TMGMTDefaultTranslatorUIControll
       '#title' => t('Email address to send to when a job is created. Leave blank to disable email notifications.'),
       '#states' => array(
         "visible" => array(
-          "input[name='emailnotification']" => array("checked" => TRUE)),
+          "input[name='emailnotification']" => array("checked" => TRUE),
+        ),
       ),
       '#description' => t(
             'Notification will be posted to this email address when a job is created.'),
