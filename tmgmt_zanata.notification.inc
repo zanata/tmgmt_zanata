@@ -116,4 +116,5 @@ class TMGMTZanataTranslatorNotification {
       return FALSE;
     }
   }
+
 }

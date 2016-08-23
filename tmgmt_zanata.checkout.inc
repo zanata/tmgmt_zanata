@@ -84,7 +84,6 @@ function tmgmt_zanata_express_checkout_form($form, &$form_state) {
   $form['actions']['request_translation_express'] = array(
     '#type' => 'submit',
     '#value' => t('Request translation'),
-        // '#submit' => array('tmgmt_ui_cart_request_translation_form_submit'),
     '#submit' => array('tmgmt_zanata_express_checkout_form_submit'),
     '#validate' => array('tmgmt_zanata_express_checkout_form_validate'),
   );
@@ -92,9 +91,7 @@ function tmgmt_zanata_express_checkout_form($form, &$form_state) {
   $form['actions']['cancel'] = array(
     '#type' => 'submit',
     '#value' => t('Cancel (resume normal checkout)'),
-        // '#submit' => array('tmgmt_ui_cart_request_translation_form_submit'),
     '#submit' => array('tmgmt_zanata_express_checkout_form_cancel'),
-        // '#validate' => array('tmgmt_zanata_express_checkout_form_validate'),
   );
 
   return $form;
@@ -156,7 +153,7 @@ function tmgmt_zanata_express_checkout_form_submit($form, &$form_state) {
   }
 
   drupal_set_message(t('Checked out %job_count translation jobs.', array(
-        '%job_count' => count($job_ids),
+    '%job_count' => count($job_ids),
     )));
 
   // Clear the cached job_ids now that they have been processed.
