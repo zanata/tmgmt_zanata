@@ -1,5 +1,6 @@
 <?php
 /**
+ * @file
  * Unit tests.
  *
  * Note that much of the functionality requires communication with

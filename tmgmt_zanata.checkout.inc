@@ -154,7 +154,7 @@ function tmgmt_zanata_express_checkout_form_submit($form, &$form_state) {
 
   drupal_set_message(t('Checked out %job_count translation jobs.', array(
     '%job_count' => count($job_ids),
-    )));
+  )));
 
   // Clear the cached job_ids now that they have been processed.
   if (!isset($_SESSION['tmgmt_express_checkout'])) {

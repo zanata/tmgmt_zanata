@@ -112,7 +112,7 @@ class TMGMTZanataTranslatorRESTClient {
       }
     }
 
-    // Assumption: this will never be as long as MAX_DOCID_LENGTH
+    // Assumption: this will never be as long as MAX_DOCID_LENGTH.
     return "{$type}/{$id}";
   }
 

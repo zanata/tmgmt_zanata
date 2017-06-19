@@ -438,7 +438,8 @@ class TmgmtZanataConnector {
       global $base_url;
       $email_contents['locales'] = array(
         $this->restclient->getLocale() =>
-        $this->restclient->getEditorUrl());
+        $this->restclient->getEditorUrl()
+      );
       $email_contents['docs'][$doc_node] = array('title' => $doc_title, 'drupal' => $base_url . '/' . $doc_node);
 
       $submitted = $this->requestItemTranslation($job_item, $base_options);
@@ -540,7 +541,7 @@ class TmgmtZanataConnector {
           '@id' => $id,
           '@type' => $job_item->item_type,
         ));
-        return FALSE;
+      return FALSE;
     }
 
     if (!$this->sendtrans) {
@@ -718,7 +719,7 @@ class TmgmtZanataConnector {
           '@lang' => $language,
           '@id' => $id,
         ));
-        return array();
+      return array();
     }
 
     $specific_trans = $translations[$language];
@@ -749,7 +750,7 @@ class TmgmtZanataConnector {
         '@id' => $id,
       ));
 
-      return $trans_data_matching_source;
+    return $trans_data_matching_source;
   }
 
   /**
@@ -800,7 +801,7 @@ class TmgmtZanataConnector {
 
     // Check html format for any of the elements.
     $job_data = $job_item->data;
-    foreach ($job_data as $node_field => $value_array) {
+    foreach ($job_data as $value_array) {
       foreach ($value_array as $field => $contents) {
         if (is_int($field) and array_key_exists('format', $contents) and
             strstr($contents['format']['#text'], 'html')) {
@@ -918,8 +919,8 @@ class TmgmtZanataConnector {
                 '@title' => $job_item->defaultLabel(),
                 '@doc_id' => $doc_id,
               ));
-              // Add doc_id as remote_identifier_1, full URL as remote_url.
-              $job_item->addRemoteMapping(NULL, $doc_id, array(
+          // Add doc_id as remote_identifier_1, full URL as remote_url.
+          $job_item->addRemoteMapping(NULL, $doc_id, array(
               'remote_url' => $url,
               ));
           break;
@@ -1096,7 +1097,7 @@ class TmgmtZanataConnector {
   private function combineTextFlowTargets($translations) {
     $targets = array();
     foreach ($translations as $node => $value) {
-      foreach ($value['textFlowTargets'] as $index => $text) {
+      foreach ($value['textFlowTargets'] as $text) {
         array_push($targets, $text);
       }
     }
@@ -1171,4 +1172,5 @@ class TmgmtZanataConnector {
       $this->notification->sendDrupalMail($notification_email, $email_subject, $body, 'default_from');
     }
   }
+
 }
