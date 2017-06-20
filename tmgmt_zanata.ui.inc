@@ -18,6 +18,8 @@ class TMGMTZanataTranslatorUIController extends TMGMTDefaultTranslatorUIControll
    *  Administration -> Configuration -> Regional and language
    *  -> Translation management translators
    *  then edit under Operations
+   *
+   * Settings are stored using the same key as the entry in the $form array.
    */
   public function pluginSettingsForm($form, &$form_state, TMGMTTranslator $translator, $busy = FALSE) {
     $form['server'] = array(
@@ -47,6 +49,51 @@ class TMGMTZanataTranslatorUIController extends TMGMTDefaultTranslatorUIControll
       '#maxlength' => 32,
       '#default_value' => $translator->getSetting('api_key'),
     );
+
+    $proxy_settings = $translator->getSetting('proxy');
+    $form['proxy'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Proxy (optional)'),
+      '#collapsible' => TRUE,
+      // collapse unless the proxy is enabled
+      '#collapsed' => !$proxy_settings['enable'],
+    );
+    $form['proxy']['enable'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Use the proxy'),
+      '#description' => t(
+        'Enable this proxy for all requests by this translator.'),
+      '#default_value' => $proxy_settings['enable'],
+    );
+    $form['proxy']['server'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Proxy server'),
+      '#description' => t('URL including protocol.'),
+      '#size' => 120,
+      '#required' => FALSE,
+      '#default_value' => $proxy_settings['server'],
+    );
+    $form['proxy']['port'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Proxy port'),
+      '#description' => t('Port to use for the proxy'),
+      '#size' => 10,
+      '#required' => FALSE,
+      '#default_value' => $proxy_settings['port'],
+    );
+    $form['proxy']['username'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Proxy username'),
+      '#description' => t('Username for http basic auth proxy authentication.'),
+      '#default_value' => $proxy_settings['username'],
+    );
+    $form['proxy']['password'] = array(
+      '#type' => 'password',
+      '#title' => t('Proxy password'),
+      '#description' => t('Password for http basic auth proxy authentication.'),
+      '#default_value' => $proxy_settings['password'],
+    );
+
     $form['project'] = array(
       '#type' => 'textfield',
       '#title' => t('Project ID'),

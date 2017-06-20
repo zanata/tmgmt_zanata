@@ -24,6 +24,13 @@ function tmgmt_zanata_tmgmt_translator_plugin_info() {
       'default settings' => array(
         'server' => 'http://translate.zanata.org/zanata',
         'segmentation' => 'NONE',
+        'proxy' => array(
+          'enable' => FALSE,
+          'server' => '',
+          'port' => '',
+          'username' => '',
+          'password' => '',
+        ),
       ),
       // TODO look at other settings on the hook page.
     ),
