@@ -10,6 +10,7 @@
 class TMGMTZanataTranslatorRESTClient {
 
   private $serverUrl;
+  private $proxy;
   private $projectId;
   private $versionId;
   private $username;
@@ -23,6 +24,7 @@ class TMGMTZanataTranslatorRESTClient {
     $translator = $job->getTranslator();
 
     $this->serverUrl = $translator->getSetting('server');
+    $this->proxy = $translator->getSetting('proxy');
     $this->projectId = $translator->getSetting('project');
     $this->versionId = $translator->getSetting('version');
     $this->username = $translator->getSetting('username');
@@ -295,40 +297,15 @@ class TMGMTZanataTranslatorRESTClient {
   /**
    * Process a request, using curl if specified.
    */
-  public function processRequest($url, $options, $curl = FALSE) {
-    return $curl ? new TmgmtZanataCURLProcess($url, $options) : drupal_http_request($url, $options);
-  }
-
-}
-
-/**
- * Class TmgmtZanataCURLProcess.
- */
-class TmgmtZanataCURLProcess {
-
-  public $code;
-  public $header;
-  public $headerSize;
-  public $data;
-
-  /**
-   * Create a new CURL Request.
-   */
-  public function __construct($url, $options) {
-    $curl = curl_init();
-    curl_setopt($curl, CURLOPT_URL, $url);
-    curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
-    curl_setopt($curl, CURLOPT_VERBOSE, 1);
-    curl_setopt($curl, CURLOPT_HEADER, 1);
-    curl_setopt($curl, CURLOPT_TIMEOUT, 60);
-    curl_setopt($curl, CURLOPT_HTTPHEADER, $options['headers']);
-    $server_output = curl_exec($curl);
-
-    $this->headerSize = curl_getinfo($curl, CURLINFO_HEADER_SIZE);
-    $this->code = curl_getinfo($curl, CURLINFO_HTTP_CODE);
-    $this->header = substr($server_output, 0, $this->headerSize);
-    $this->data = substr($server_output, $this->headerSize);
-    curl_close($curl);
+  public function processRequest($url, $options) {
+    if ($this->proxy['enable']) {
+      // Set both since chr will choose based on the request protocol.
+      // Config could have either http or https server and the admin should
+      // ensure the given proxy config works with what they have entered.
+      $options['http_proxy'] = $this->proxy;
+      $options['https_proxy'] = $this->proxy;
+    }
+    return chr_curl_http_request($url, $options);
   }
 
 }

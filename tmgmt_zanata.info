@@ -3,6 +3,7 @@ description = Zanata translation plugin for TMGMT. Visit <a href="http://zanata.
 package = Translation Management
 core = 7.x
 dependencies[] = tmgmt
+dependencies[] = chr
 
 files[] = tmgmt_zanata.notification.inc
 files[] = tmgmt_zanata.segmenter.inc

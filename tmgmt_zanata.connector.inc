@@ -209,7 +209,7 @@ class TmgmtZanataConnector {
               $options = $this->restclient->getBaseOptions(
                   'application/octet-stream', 'application/octet-stream'
               );
-              $response = $this->restclient->processRequest($url, $options, TRUE);
+              $response = $this->restclient->processRequest($url, $options);
 
               if ($response->code == 200) {
                 $data = $this->createItemResponse(
@@ -581,7 +581,7 @@ class TmgmtZanataConnector {
     // Makes a copy.
     $options = $base_options;
     $options['data'] = json_encode($data);
-    $response = drupal_http_request($url, $options);
+    $response = $this->restclient->processRequest($url, $options);
 
     switch ($response->code) {
       case 200:
