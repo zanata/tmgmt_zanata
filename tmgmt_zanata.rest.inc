@@ -209,12 +209,12 @@ class TMGMTZanataTranslatorRESTClient {
   }
 
   /**
-   * To keep post_data ready required for file upload.
+   * Set headers and package $options['data'] ready to send on the file upload API.
    *
    * @return mixed[]
-   *   post_data as required for Zanata server uploads
+   *   a new options array with the relevant values set
    */
-  public function handleFileUpload($options) {
+  public function prepareOptionsForFileUpload($options) {
     $boundary = md5(uniqid());
 
     // Modify header params.
@@ -295,7 +295,7 @@ class TMGMTZanataTranslatorRESTClient {
   }
 
   /**
-   * Process a request, using curl if specified.
+   * Process a request, using proxy if specified.
    */
   public function processRequest($url, $options) {
     if ($this->proxy['enable']) {

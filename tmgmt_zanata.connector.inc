@@ -120,7 +120,7 @@ class TmgmtZanataConnector {
 
     foreach ($job->getItems() as $job_item) {
 
-      $html_node_content = $this->determineNodeContentFormat($job_item);
+      $html_node_content = $this->shouldUseHtml($job_item);
 
       if (!$html_node_content) {
         $url = $this->restclient->getItemTranslationUrl($job_item);
@@ -792,7 +792,7 @@ class TmgmtZanataConnector {
    * @return bool
    *   True if it is HTML, else false.
    */
-  private function determineNodeContentFormat(TMGMTJobItem $job_item) {
+  private function shouldUseHtml(TMGMTJobItem $job_item) {
 
     // Check HTML segmentation setting.
     if ($this->translator->getSetting('segmentation') !== 'HTML') {
@@ -861,22 +861,22 @@ class TmgmtZanataConnector {
    *   TRUE if the source was submitted successfully, FALSE otherwise
    */
   private function requestItemTranslation(TMGMTJobItem $job_item, $base_options) {
+    $use_html = $this->shouldUseHtml($job_item);
 
-    $html_flag = $this->determineNodeContentFormat($job_item);
-    $html_doc = NULL;
-    $process_request_queue = array();
+    // Queue of upload requests keyed by URL.
+    // Each item should have 'doc_id', 'title', 'options'
+    // TODO use a class to enforce the presence of those keys
+    $upload_request_queue = array();
 
-    if (!$html_flag) {
+    if (!$use_html) {
       $url = $this->restclient->getItemUrl($job_item);
       $options = $base_options;
       $data = $this->getCommonData();
       $data['textFlows'] = $this->prepareStrings($job_item);
       $options['data'] = json_encode($data);
-      $process_request_queue[$url] = $options;
-
+      $upload_request_queue[$url] = $options;
     }
     else {
-
       $job_item_data = new TmgmtZanataJobItemDataBuilder($job_item);
       $job_item_contents = $job_item_data->getNodeContents();
 
@@ -886,16 +886,29 @@ class TmgmtZanataConnector {
           $url = $this->restclient->getFileUploadUrl($html_doc);
           $options = $base_options;
           $options['data'] = $content->data;
-          $options = $this->restclient->handleFileUpload($options);
-          $process_request_queue[$url] = $options;
+          $options = $this->restclient->prepareOptionsForFileUpload($options);
+          $upload_request_queue[$url] = array(
+            'doc_id' => $html_doc,
+            'title' => $job_item->defaultLabel() . '.' . $content->key,
+            'options' => $options,
+          );
         }
         else {
+          // FIXME This will shadow earlier non-html items if more than one field is not html.
+          // Change this so that all non-html fields are sent together.
+          // It should either collect all the non-html fields and process them last,
+          // or filter/partition the array so that all non-html fields are available
+          // at once.
           $url = $this->restclient->getItemUrl($job_item);
           $options = $base_options;
           $data = $this->getCommonData();
           $data['textFlows'] = array($this->createItem($content->key, $content->data));
           $options['data'] = json_encode($data);
-          $process_request_queue[$url] = $options;
+          $upload_request_queue[$url] = array(
+            'doc_id' => $this->restclient->getDocId($job_item),
+            'title' => $job_item->defaultLabel(),
+            'options' => $options,
+          );
         }
       }
     }
@@ -905,22 +918,21 @@ class TmgmtZanataConnector {
     // Pushing node contents to server.
     $rest_responses = array();
 
-    foreach ($process_request_queue as $url => $options) {
-      $response = $this->restclient->processRequest($url, $options);
+    foreach ($upload_request_queue as $url => $details) {
+      $response = $this->restclient->processRequest($url, $details['options']);
       array_push($rest_responses, $response);
 
       switch ($response->code) {
         case 200:
         case 201:
-          $doc_id = $this->endsWith($url, '.html') ? $html_doc : $this->restclient->getDocId($job_item);
           $job_item->addMessage(
               'Sent document: item "@title" sent to Zanata as document "@doc_id".',
               array(
-                '@title' => $job_item->defaultLabel(),
-                '@doc_id' => $doc_id,
+                '@title' => $details['title'],
+                '@doc_id' => $details['doc_id'],
               ));
           // Add doc_id as remote_identifier_1, full URL as remote_url.
-          $job_item->addRemoteMapping(NULL, $doc_id, array(
+          $job_item->addRemoteMapping(NULL, $details['doc_id'], array(
               'remote_url' => $url,
               ));
           break;
@@ -930,7 +942,7 @@ class TmgmtZanataConnector {
           $job_item->addMessage(
               'Item "@title" was not successfully sent to Zanata due to an authorization error.',
               array(
-                '@title' => $job_item->defaultLabel(),
+                '@title' => $details['title'],
                 '@code' => $response->code,
               ), 'error');
           break;
@@ -944,12 +956,20 @@ class TmgmtZanataConnector {
           break;
 
         default:
-          $doc = $this->endsWith($url, '.html') ? $html_doc : $this->restclient->getDocId($job_item);
-          $this->addSendSourceErrorToItem($job_item, $response, $doc);
+          $this->addSendSourceErrorToItem($job_item, $response, $details['doc_id']);
           break;
       }
     }
+
     $failed_responses = array_filter($rest_responses, array($this, 'notSuccessResponse'));
+
+    $job_item->addMessage(
+        'Sent item "@title" in @total parts (@failures failed).',
+        array(
+          '@title' => $job_item->defaultLabel(),
+          '@total' => count($rest_responses),
+          '@failures' => count($failed_responses),
+        ));
     return empty($failed_responses);
   }
 
