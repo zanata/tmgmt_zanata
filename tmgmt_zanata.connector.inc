@@ -878,7 +878,7 @@ class TmgmtZanataConnector {
     else {
 
       $job_item_data = new TmgmtZanataJobItemDataBuilder($job_item);
-      $job_item_contents = $job_item_data->processNodeContents();
+      $job_item_contents = $job_item_data->getNodeContents();
 
       foreach ($job_item_contents as $content) {
         if ($content->isHtml) {
